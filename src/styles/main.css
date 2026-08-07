@@ -1,0 +1,435 @@
+:root {
+  --blue: #1c4fb8;
+  --ink: #1c2b4a;
+  --cream: #fdf6e3;
+  --yellow: #ffcb05;
+  --green: #2fae63;
+  --red: #e85454;
+  --font-display: "DotGothic16", monospace;
+  --font-body: "Zen Maru Gothic", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--blue);
+  color: var(--ink);
+  font-family: var(--font-body);
+  line-height: 1.6;
+}
+
+#app {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+}
+
+/* --- 共通部品 --- */
+
+.card {
+  background: var(--cream);
+  border: 3px solid var(--ink);
+  border-radius: 12px;
+  box-shadow: 4px 4px 0 var(--ink);
+  padding: 16px;
+}
+
+.btn {
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 1.1rem;
+  border: 3px solid var(--ink);
+  border-radius: 10px;
+  box-shadow: 3px 3px 0 var(--ink);
+  padding: 10px 28px;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--ink);
+}
+
+.btn-primary {
+  background: var(--yellow);
+  color: var(--ink);
+}
+
+:focus-visible {
+  outline: 3px solid var(--yellow);
+  outline-offset: 2px;
+}
+
+.credit {
+  color: var(--cream);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.credit a {
+  color: var(--yellow);
+}
+
+/* --- タイトル --- */
+
+.game-title {
+  font-family: var(--font-display);
+  color: var(--yellow);
+  text-shadow: 3px 3px 0 var(--ink);
+  font-size: clamp(2rem, 8vw, 3rem);
+  margin: 24px 0 8px;
+  text-align: center;
+}
+
+.rules-card {
+  text-align: center;
+  max-width: 420px;
+}
+
+.rules {
+  text-align: left;
+  font-size: 0.95rem;
+  margin: 12px 0 20px;
+  padding-left: 1.4em;
+}
+
+/* --- 出題 --- */
+
+.quiz-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: var(--cream);
+}
+
+.q-number {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+}
+
+.q-total {
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.dots {
+  display: flex;
+  gap: 6px;
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--cream);
+  border: 2px solid var(--ink);
+  opacity: 0.5;
+}
+
+.dot-current {
+  opacity: 1;
+  transform: scale(1.25);
+  background: var(--yellow);
+}
+
+.dot-correct {
+  opacity: 1;
+  background: var(--green);
+}
+
+.dot-wrong {
+  opacity: 1;
+  background: var(--red);
+}
+
+.target-card {
+  text-align: center;
+  min-width: min(320px, 100%);
+}
+
+.target-label {
+  display: inline-block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: var(--blue);
+  color: var(--cream);
+  border-radius: 6px;
+  padding: 1px 10px;
+}
+
+.poke-img {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+  image-rendering: auto;
+}
+
+.poke-name {
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.poke-no {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  opacity: 0.6;
+}
+
+.question-text {
+  color: var(--cream);
+  font-weight: 700;
+  font-size: 1.15rem;
+  text-align: center;
+  margin: 0;
+}
+
+.choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  width: 100%;
+  max-width: 560px;
+}
+
+.choice-card {
+  position: relative;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  text-align: center;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.choice-card:not(:disabled):hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 0 var(--ink);
+}
+
+.choice-card:disabled {
+  cursor: default;
+}
+
+.choice-correct {
+  border-color: var(--green);
+  box-shadow: 4px 4px 0 var(--green);
+}
+
+.badge {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fff;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.badge-correct {
+  background: var(--green);
+}
+
+.badge-wrong {
+  background: var(--red);
+}
+
+.speed-value {
+  font-size: 0.9rem;
+}
+
+.speed-value strong {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+}
+
+.speed-bar {
+  height: 10px;
+  background: #e5dcc3;
+  border: 2px solid var(--ink);
+  border-radius: 5px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.speed-bar-fill {
+  height: 100%;
+  background: var(--yellow);
+  transition: width 0.6s ease-out;
+}
+
+.quiz-footer {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+}
+
+/* --- 結果 --- */
+
+.score-card {
+  text-align: center;
+  min-width: min(320px, 100%);
+}
+
+.score-label {
+  font-weight: 700;
+}
+
+.score-value {
+  font-family: var(--font-display);
+  font-size: 3.5rem;
+  line-height: 1.2;
+}
+
+.score-total {
+  font-size: 1.5rem;
+  opacity: 0.6;
+}
+
+.score-comment {
+  margin: 4px 0 16px;
+}
+
+.history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.history-row {
+  background: var(--cream);
+  border: 3px solid var(--ink);
+  border-radius: 12px;
+  box-shadow: 3px 3px 0 var(--ink);
+  padding: 10px 12px;
+}
+
+.history-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.mark {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.mark-correct {
+  color: var(--green);
+}
+
+.mark-wrong {
+  color: var(--red);
+}
+
+.chips {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  position: relative;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  padding: 14px 8px 4px;
+  text-align: center;
+  min-width: 88px;
+}
+
+.chip-target {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 1px var(--blue);
+}
+
+.chip-correct {
+  border-color: var(--green);
+  box-shadow: 0 0 0 1px var(--green);
+}
+
+.chip-wrong {
+  border-color: var(--red);
+  box-shadow: 0 0 0 1px var(--red);
+}
+
+.chip-tag {
+  position: absolute;
+  top: -10px;
+  left: 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  background: var(--blue);
+  color: #fff;
+  border-radius: 4px;
+  padding: 0 5px;
+}
+
+.chip-tag-picked {
+  left: auto;
+  right: 4px;
+  background: var(--ink);
+}
+
+.chip-img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+}
+
+.chip-name {
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.chip-speed {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+}
+
+/* --- レスポンシブ / アクセシビリティ --- */
+
+@media (max-width: 420px) {
+  .poke-img {
+    width: 84px;
+    height: 84px;
+  }
+
+  .chip-img {
+    width: 36px;
+    height: 36px;
+  }
+
+  .choices {
+    gap: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .speed-bar-fill,
+  .btn,
+  .choice-card {
+    transition: none;
+  }
+}

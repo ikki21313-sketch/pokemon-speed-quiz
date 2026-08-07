@@ -1,0 +1,285 @@
+# ポケモン すばやさクイズ — 設計書
+
+Claude Code でローカル実装するための設計書。本書をリポジトリ直下に置き、Claude Code に「DESIGN.md に従って実装して」と指示することを想定する。
+
+---
+
+## 1. プロジェクト概要
+
+PokeAPI のデータを用いた、ポケモンの素早さ（S）種族値を比較するブラウザゲーム。お手本ポケモン1匹に対し、2匹の選択肢から「お手本より素早さが高い」ほうを当てる。10問連続で正解数を競い、終了後に履歴を確認できる。
+
+- 対象: 個人利用・非商用のファンプロジェクト
+- 動作環境: モダンブラウザ（PC / スマホ）
+- サーバー: 不要（静的サイト。ローカルでは Vite dev server で開発）
+
+---
+
+## 2. ライセンス・利用規約要件（必須要件）
+
+本プロジェクトは以下を **機能要件と同格の必須要件** として扱う。実装・構成はすべてこの制約下で行うこと。
+
+### 2.1 PokeAPI フェアユースポリシーへの準拠
+
+PokeAPI の公式ポリシーは「取得したリソースは必ずローカルにキャッシュすること」を求めている。よって:
+
+- **R-1**: 実行時（ゲームプレイ中）に PokeAPI へリクエストを送らない設計とする。データはビルド前に一括取得し、静的ファイルとしてリポジトリに同梱する。
+- **R-2**: データ取得スクリプト（`scripts/sync-data.mjs`）は PokeAPI 本体ではなく、PokeAPI が GitHub で公開している CSV データ（`raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/csv/`）から取得する。API サーバーへの負荷をゼロにするため。
+- **R-3**: データ取得スクリプトの実行は開発者が手動で行うものとし（`npm run sync-data`）、CI などで高頻度に自動実行しない。
+
+### 2.2 クレジット・ライセンス表記（BSD-3-Clause）
+
+PokeAPI のデータは BSD-3-Clause で提供される。再配布条件を満たすため:
+
+- **R-4**: リポジトリに `THIRD_PARTY_NOTICES.md` を作成し、以下を記載する。
+  - PokeAPI の著作権表示（Copyright (c) 2013–現在 Paul Hallett and PokéAPI contributors）
+  - BSD-3-Clause ライセンス全文
+  - 「Pokémon および ポケモンのキャラクター名は任天堂の商標である」旨
+- **R-5**: ゲーム画面のフッターまたはタイトル画面に「データ出典: PokéAPI (pokeapi.co)」のクレジットを表示する。
+
+### 2.3 任天堂側の知的財産への配慮
+
+ポケモンの名称・画像等の権利は任天堂・クリーチャーズ・ゲームフリーク（株式会社ポケモン）に帰属する。PokeAPI は非公式プロジェクトであり、権利許諾を代行するものではない。よって:
+
+- **R-6**: 本プロジェクトは **非商用** とする。広告・課金・販売を行わない。README に非商用のファンプロジェクトである旨と免責を明記する。
+- **R-7**: 公式と誤認させる表現（公式ロゴの使用、「公式」を名乗る等）をしない。
+- **R-8**: **画像はリポジトリに同梱しない**。立ち絵は実行時に PokeAPI の sprites リポジトリ（`raw.githubusercontent.com/PokeAPI/sprites/...`）から参照する。画像は名称・数値データよりも著作物性が高く、自リポジトリでの再配布を避けるため（画像取得はブラウザによる参照であり 2.1 のキャッシュ要件の対象外。ブラウザの HTTP キャッシュに委ねる）。
+- **R-9**: 権利者から削除・変更の要請があった場合は速やかに応じる方針を README に記載する。
+
+### 2.4 README 記載事項チェックリスト
+
+- [ ] 非公式・非商用のファンプロジェクトである旨
+- [ ] データ出典（PokéAPI）とリンク
+- [ ] 商標・著作権の帰属表示
+- [ ] `THIRD_PARTY_NOTICES.md` への参照
+- [ ] 削除要請への対応方針
+
+---
+
+## 3. 技術スタック
+
+| 項目 | 選定 | 理由 |
+|---|---|---|
+| 言語 | TypeScript | 型でデータ構造と問題生成ロジックを保証 |
+| ビルド | Vite | 設定が薄く、静的出力が簡単 |
+| UI | Vanilla TS + CSS（フレームワークなし） | 画面3枚の小規模アプリのため。React 等は過剰 |
+| テスト | Vitest | 問題生成ロジックの検証に使用 |
+| データ取得 | Node スクリプト（`scripts/sync-data.mjs`） | ビルド前に1回だけ実行 |
+| フォント | Google Fonts（DotGothic16 / Zen Maru Gothic） | レトロゲーム風の見た目。オフライン要件はない |
+
+---
+
+## 4. ディレクトリ構成
+
+```
+pokemon-speed-quiz/
+├── DESIGN.md                  # 本書
+├── README.md                  # R-6, R-9, 2.4 参照
+├── THIRD_PARTY_NOTICES.md     # R-4
+├── package.json
+├── vite.config.ts
+├── index.html
+├── scripts/
+│   └── sync-data.mjs          # CSV取得 → src/data/pokedata.json 生成
+├── src/
+│   ├── main.ts                # エントリ。画面遷移の制御
+│   ├── data/
+│   │   ├── pokedata.json      # 生成物: [[id, 日本語名, 素早さ], ...] 全1025件
+│   │   └── loader.ts          # JSON読込と型付け
+│   ├── game/
+│   │   ├── types.ts           # 型定義
+│   │   ├── question.ts        # 問題生成ロジック（純粋関数）
+│   │   └── state.ts           # ゲーム進行状態の管理
+│   ├── ui/
+│   │   ├── screens/
+│   │   │   ├── title.ts       # タイトル画面
+│   │   │   ├── quiz.ts        # 出題・回答画面
+│   │   │   └── result.ts      # 結果・履歴画面
+│   │   ├── components.ts      # 共通部品（進捗ドット、速度バー等）
+│   │   └── images.ts          # 画像URL生成とフォールバック
+│   └── styles/
+│       └── main.css
+└── tests/
+    └── question.test.ts       # 問題生成の制約テスト
+```
+
+---
+
+## 5. データ設計
+
+### 5.1 データソース（sync-data.mjs の入力）
+
+| ファイル | 用途 | 抽出条件 |
+|---|---|---|
+| `pokemon_stats.csv` | 素早さ種族値 | `stat_id = 6`（speed）、`pokemon_id` 1〜1025 |
+| `pokemon_species_names.csv` | 日本語名 | `local_language_id = 11`（ja）、なければ `1`（ja-Hrkt） |
+
+図鑑 No.1〜1025 の範囲では `pokemon_id` と `pokemon_species_id` は一致する。
+
+### 5.2 生成物: `src/data/pokedata.json`
+
+サイズ最小化のためタプル配列とする（実測 約27KB）。
+
+```jsonc
+// [図鑑No, 日本語名, 素早さ種族値]
+[[1,"フシギダネ",45],[25,"ピカチュウ",90], ...]
+```
+
+### 5.3 型定義（`src/game/types.ts`）
+
+```ts
+export type PokeTuple = [id: number, jaName: string, speed: number];
+
+export interface Pokemon {
+  id: number;
+  jaName: string;
+  speed: number;
+}
+
+export interface Question {
+  target: Pokemon;            // お手本（素早さは3匹の中間値）
+  fast: Pokemon;              // 正解（target より速い）
+  slow: Pokemon;              // 不正解（target より遅い）
+  choices: [Pokemon, Pokemon]; // fast と slow をシャッフルした表示順
+  pickedId: number | null;    // 回答したポケモンID（未回答は null）
+  correct: boolean | null;    // 正誤（未回答は null）
+}
+
+export interface GameState {
+  questions: Question[];      // 長さ TOTAL_Q
+  index: number;              // 現在の問題番号（0-based）
+  score: number;
+  phase: "title" | "quiz" | "result";
+}
+```
+
+### 5.4 画像URL（`src/ui/images.ts`）
+
+R-8 に基づき実行時参照。フォールバックを3段階で行う。
+
+1. 公式アートワーク: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/{id}.png`
+2. 通常スプライト: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{id}.png`
+3. プレースホルダ: インライン SVG のモンスターボール（データURI）
+
+`onerror` ハンドラで段階的に切替える。回答確定時に次問の3枚を `new Image()` で先読みする。
+
+---
+
+## 6. 問題生成ロジック（`src/game/question.ts`）
+
+### 6.1 仕様
+
+- 全データからランダムに3匹選出する。ただし以下をすべて満たすこと。
+  - **C-1**: 3匹の ID がすべて異なる
+  - **C-2**: 3匹の素早さがすべて異なる（同速による引き分けを排除）
+  - **C-3**: 1ゲーム10問の中で同じポケモンを再登場させない（試行回数上限到達時のみ緩和可）
+- 3匹を素早さ昇順に並べ、`slow` / `target`（中間値）/ `fast` に割り当てる。
+- `choices` は `[fast, slow]` をシャッフルした順で保持する。
+- 純粋関数として実装し、乱数は注入可能にする（テスト容易性のため `rng: () => number` を引数に取る）。
+
+```ts
+export function buildQuestions(
+  data: PokeTuple[],
+  count: number,
+  rng: () => number = Math.random
+): Question[];
+```
+
+### 6.2 アルゴリズム
+
+1. 使用済み ID 集合 `used` を用意
+2. 各問について最大500回試行: ランダムに3匹引き、C-1・C-2 を満たし、かつ全員 `used` 外なら採用（300回超過後は `used` 制約のみ緩和）
+3. 採用した3匹を `used` に追加し、昇順ソートして Question を構築
+
+---
+
+## 7. 画面仕様
+
+### 7.1 画面遷移
+
+```
+[タイトル] --スタート--> [出題(1〜10問)] --10問終了--> [結果・履歴] --もう一度--> [出題]
+```
+
+### 7.2 タイトル画面（`title.ts`）
+
+- ゲームタイトル、ルール説明（4行程度）、スタートボタン
+- フッターにクレジット表記（R-5）: 「データ出典: PokéAPI (pokeapi.co) / 非公式ファンプロジェクト」
+
+### 7.3 出題画面（`quiz.ts`）
+
+| 要素 | 未回答時 | 回答後 |
+|---|---|---|
+| ヘッダー | 問題番号（n/10）と10個の進捗ドット（正解=緑、不正解=赤、現在=強調） | 同左（結果反映） |
+| お手本カード | 立ち絵・名前・図鑑No、素早さは `???` 表示 | 素早さ実数値と速度バーを表示 |
+| 設問文 | 「〇〇より すばやいのは どっち？」 | 同左 |
+| 選択肢カード×2 | 立ち絵・名前、素早さは `???`。クリックで回答確定 | 全員の素早さと速度バー表示。正解カードを緑枠で強調、選択カードに「せいかい！/ざんねん…」バッジ。ボタンは無効化 |
+| フッター | なし | 「つぎの問題へ」（10問目は「けっかを見る」）ボタン |
+
+- 速度バー: 素早さ200を上限とした割合で横バーを描画。回答時に 0% → 実値へ CSS transition でアニメーション（`prefers-reduced-motion` 時は無効）
+- 回答確定処理: `pickedId` 記録 → 正誤判定 → スコア加算 → 次問画像の先読み → 再描画
+
+### 7.4 結果・履歴画面（`result.ts`）
+
+- スコア（n/10）を大きく表示し、点数帯別のコメントを1行添える
+- 10問ぶんの履歴リスト。各行に以下を表示:
+  - 正誤マーク（○/×）と設問文
+  - 3匹のチップ（小画像・名前・素早さ実数値）。お手本=青枠+「お手本」タグ、正解=緑枠、誤答選択=赤枠、選択した1匹に「選択」タグ
+- 「もういちど あそぶ」ボタン → 問題を再生成して出題画面へ
+
+### 7.5 デザイントークン
+
+| トークン | 値 | 用途 |
+|---|---|---|
+| `--blue` | `#1c4fb8` | 背景 |
+| `--ink` | `#1c2b4a` | 文字・枠線 |
+| `--cream` | `#fdf6e3` | カード面 |
+| `--yellow` | `#ffcb05` | 主ボタン・速度バー |
+| `--green` / `--red` | `#2fae63` / `#e85454` | 正解 / 不正解 |
+
+見た目の方針: 白カード＋3px の太枠＋ハードシャドウのレトロゲーム風。表示フォントは DotGothic16（数値・英字見出し）、本文は Zen Maru Gothic。モバイル（幅420px以下）で画像サイズを縮小するレスポンシブ対応。キーボード操作（Tab + Enter）とフォーカスリングを保証する。
+
+---
+
+## 8. データ取得スクリプト仕様（`scripts/sync-data.mjs`）
+
+1. `pokemon_stats.csv` と `pokemon_species_names.csv` を `raw.githubusercontent.com` から取得（R-2）
+2. 5.1 の条件で抽出・結合し、1025件揃っているか検証（欠損があればエラー終了）
+3. `src/data/pokedata.json` に書き出し、件数とファイルサイズをログ出力
+4. `package.json` に `"sync-data": "node scripts/sync-data.mjs"` を定義（R-3: 手動実行のみ）
+
+生成済み JSON はリポジトリにコミットする（clone 直後にスクリプト実行なしで動くこと）。
+
+---
+
+## 9. テスト要件（`tests/question.test.ts`）
+
+固定シードの乱数を注入し、以下を検証する。
+
+| # | 検証内容 |
+|---|---|
+| T-1 | `buildQuestions` が指定問数を返す |
+| T-2 | 全問で `fast.speed > target.speed > slow.speed` が成立する |
+| T-3 | 各問の3匹の ID が相異なる |
+| T-4 | `choices` に `fast` と `slow` が1匹ずつ含まれる |
+| T-5 | 1ゲーム内でポケモンが重複しない（通常ケース） |
+| T-6 | 1000ゲーム生成しても例外・制約違反が発生しない |
+| T-7 | データ件数が1025件で、素早さが 1〜300 の整数である |
+
+---
+
+## 10. 実装タスク分割（Claude Code への指示順）
+
+1. **足場**: Vite + TypeScript + Vitest のプロジェクト初期化、ディレクトリ作成
+2. **データ**: `scripts/sync-data.mjs` 実装 → 実行して `pokedata.json` 生成 → `loader.ts` と `types.ts`
+3. **ロジック**: `question.ts` 実装 → `question.test.ts` を書き全テスト通過
+4. **UI**: `main.ts` の画面遷移 → `title.ts` → `quiz.ts` → `result.ts` → CSS
+5. **画像**: `images.ts`（フォールバック・先読み）
+6. **コンプライアンス**: `README.md` / `THIRD_PARTY_NOTICES.md` 作成、フッタークレジット確認（2.4 チェックリスト消化）
+7. **仕上げ**: モバイル表示・キーボード操作・reduced-motion の確認、`npm run build` で静的出力確認
+
+## 11. 非機能要件
+
+- 初回表示: データ同梱のためネットワーク不要で即時（画像のみ遅延読込）
+- 実行時の PokeAPI 本体へのリクエスト数: **0**（R-1 の受入基準）
+- 依存パッケージ: 実行時依存ゼロ（devDependencies のみ）
+- 対応ブラウザ: 直近2バージョンの Chrome / Edge / Firefox / Safari
