@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildQuestions } from "../src/game/question";
 import { answer, isAnswerHidden } from "../src/game/state";
 import { loadPokeData, loadTricksters } from "../src/data/loader";
-import { TOTAL_Q, correctChoice } from "../src/game/types";
+import { TOTAL_Q, correctAnswerId } from "../src/game/types";
 import type { GameState, Question } from "../src/game/types";
 
 function seededRng(seed: number): () => number {
@@ -37,7 +37,7 @@ describe("answer (化けギミックのフロー)", () => {
   it("S-1: 見た目に正解がある化け問題で1発正解 → 出現スキップで正解確定", () => {
     const q = findDisguised((x) => !isAnswerHidden(x));
     const st = stateWith(q);
-    const result = answer(st, correctChoice(q).poke.id);
+    const result = answer(st, correctAnswerId(q));
     expect(result).toBe(true);
     expect(q.correct).toBe(true);
     expect(q.disguise!.revealed).toBe(false); // 最後まで化けたまま
@@ -47,7 +47,7 @@ describe("answer (化けギミックのフロー)", () => {
   it("S-2: 化け問題で不正解を選ぶ → 確定せず正体が出現し、再回答できる", () => {
     const q = findDisguised((x) => !isAnswerHidden(x));
     const st = stateWith(q);
-    const ansId = correctChoice(q).poke.id;
+    const ansId = correctAnswerId(q);
     const wrong = q.choices.find((c) => c.poke.id !== ansId)!;
     expect(answer(st, wrong.poke.id)).toBe("revealed");
     expect(q.pickedId).toBeNull();
@@ -61,7 +61,7 @@ describe("answer (化けギミックのフロー)", () => {
   it("S-3: 正解がゾロアーク側の問題では、出現後の正解ピックのみ正解になる", () => {
     const q = findDisguised((x) => isAnswerHidden(x));
     const st = stateWith(q);
-    const ansId = correctChoice(q).poke.id;
+    const ansId = correctAnswerId(q);
     const wrong = q.choices.find((c) => c.poke.id !== ansId)!;
     expect(answer(st, wrong.poke.id)).toBe("revealed");
     expect(answer(st, ansId)).toBe(true);
@@ -71,7 +71,7 @@ describe("answer (化けギミックのフロー)", () => {
   it("S-4: 出現後に不正解を選ぶと不正解で確定する", () => {
     const q = findDisguised((x) => isAnswerHidden(x));
     const st = stateWith(q);
-    const ansId = correctChoice(q).poke.id;
+    const ansId = correctAnswerId(q);
     const wrong = q.choices.find((c) => c.poke.id !== ansId)!;
     expect(answer(st, wrong.poke.id)).toBe("revealed");
     expect(answer(st, wrong.poke.id)).toBe(false);
@@ -81,10 +81,18 @@ describe("answer (化けギミックのフロー)", () => {
     expect(answer(st, ansId)).toBeNull();
   });
 
+  it("S-5: 通常問題は1回で確定する", () => {
+    const qs = buildQuestions(data, TOTAL_Q, seededRng(1)); // trickなし
+    const q = qs[0];
+    const st = stateWith(q);
+    expect(answer(st, correctAnswerId(q))).toBe(true);
+    expect(st.score).toBe(1);
+  });
+
   it("S-6: 化けているカードを選ぶと、それが隠れた正解でもスキップせず出現する", () => {
     const q = findDisguised((x) => isAnswerHidden(x));
     const st = stateWith(q);
-    const ansId = correctChoice(q).poke.id; // 正解は化けたゾロアーク
+    const ansId = correctAnswerId(q); // 正解は化けたゾロアーク
     expect(answer(st, ansId)).toBe("revealed"); // 正解ピックでもスキップしない
     expect(q.pickedId).toBeNull();
     // 出現後に同じカードを選べば正解確定
@@ -92,11 +100,41 @@ describe("answer (化けギミックのフロー)", () => {
     expect(st.score).toBe(1);
   });
 
-  it("S-5: 通常問題は1回で確定する", () => {
-    const qs = buildQuestions(data, TOTAL_Q, seededRng(1)); // trickなし
-    const q = qs[0];
-    const st = stateWith(q);
-    expect(answer(st, correctChoice(q).poke.id)).toBe(true);
-    expect(st.score).toBe(1);
+  it("S-7: お手本最速の化け問題でお手本を1発タップ → 出現スキップで正解", () => {
+    for (let seed = 0; seed < 100; seed++) {
+      const qs = buildQuestions(data, TOTAL_Q, seededRng(seed), {
+        tricks,
+        trickRate: 1,
+        targetWinRate: 1,
+      });
+      const q = qs.find((x) => x.disguise !== null);
+      if (!q) continue;
+      const st = stateWith(q);
+      expect(correctAnswerId(q)).toBe(q.target.poke.id);
+      expect(answer(st, q.target.poke.id)).toBe(true);
+      expect(q.disguise!.revealed).toBe(false); // 最後まで化けたまま
+      expect(st.score).toBe(1);
+      return;
+    }
+    throw new Error("disguised target-win question not found");
+  });
+
+  it("S-8: お手本最速の化け問題で選択肢を選ぶと出現し、お手本タップで正解", () => {
+    for (let seed = 0; seed < 100; seed++) {
+      const qs = buildQuestions(data, TOTAL_Q, seededRng(seed), {
+        tricks,
+        trickRate: 1,
+        targetWinRate: 1,
+      });
+      const q = qs.find((x) => x.disguise !== null);
+      if (!q) continue;
+      const st = stateWith(q);
+      expect(answer(st, q.choices[0].poke.id)).toBe("revealed");
+      expect(q.pickedId).toBeNull();
+      expect(answer(st, q.target.poke.id)).toBe(true);
+      expect(st.score).toBe(1);
+      return;
+    }
+    throw new Error("disguised target-win question not found");
   });
 });

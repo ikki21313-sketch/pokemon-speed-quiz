@@ -10,6 +10,7 @@ import {
   ZOROARK_ID,
   computedSpeed,
   correctChoice,
+  correctAnswerId,
 } from "../src/game/types";
 import type { Question, Spread } from "../src/game/types";
 
@@ -46,8 +47,10 @@ function expectInvariants(q: Question): void {
   for (const e of [q.target, ...q.choices]) {
     expect(e.speed).toBe(computedSpeed(e.poke.speed, e.spread));
   }
-  // C-5: お手本より速いのは(正体ベースで)ちょうど1体
-  expect(q.choices.filter((c) => c.speed > q.target.speed)).toHaveLength(1);
+  // C-5: お手本より速いのは(正体ベースで)最大1体 (お手本最速の問題では0体)
+  expect(
+    q.choices.filter((c) => c.speed > q.target.speed).length
+  ).toBeLessThanOrEqual(1);
   // C-4: 通常枠は ±COMPUTED_RANGE 以内。化けの皮はあえて範囲外(速い側/遅い側どちらも可)
   for (const [i, c] of q.choices.entries()) {
     const slot = disguisedSlot(q, i);
@@ -112,13 +115,25 @@ describe("buildQuestions", () => {
     }
   });
 
+  it("T-9: targetWinRate=1 で全問お手本最速、0 で常に選択肢が正解", () => {
+    const qsWin = buildQuestions(data, TOTAL_Q, seededRng(30), { targetWinRate: 1 });
+    for (const q of qsWin) {
+      expect(correctChoice(q)).toBeNull();
+      expect(correctAnswerId(q)).toBe(q.target.poke.id);
+      for (const c of q.choices) expect(c.speed).toBeLessThan(q.target.speed);
+      expectInvariants(q);
+    }
+    const qsNo = buildQuestions(data, TOTAL_Q, seededRng(31), { targetWinRate: 0 });
+    for (const q of qsNo) expect(correctChoice(q)).not.toBeNull();
+  });
+
   it("T-8: 振り方ラベルと正誤が無相関 (P(正解|ラベル) ≒ 25%)", () => {
     const correctBy: Record<Spread, number> = { max: 0, semi: 0, none: 0 };
     const cardBy: Record<Spread, number> = { max: 0, semi: 0, none: 0 };
     for (let seed = 0; seed < 500; seed++) {
       const qs = buildQuestions(data, TOTAL_Q, seededRng(seed));
       for (const q of qs) {
-        correctBy[correctChoice(q).spread]++;
+        correctBy[correctChoice(q)!.spread]++;
         for (const c of q.choices) cardBy[c.spread]++;
       }
     }
@@ -173,7 +188,7 @@ describe("buildQuestions (ゾロアークギミック)", () => {
       const qs = buildQuestions(data, TOTAL_Q, seededRng(seed), { tricks, trickRate: 1 });
       for (const q of qs) {
         if (!q.disguise) continue;
-        const ans = correctChoice(q);
+        const ans = correctChoice(q)!;
         if (trickIds.has(ans.poke.id)) {
           zoroWins++;
         } else {
@@ -187,6 +202,23 @@ describe("buildQuestions (ゾロアークギミック)", () => {
     }
     expect(zoroWins).toBeGreaterThan(0);
     expect(normalWins).toBeGreaterThan(0);
+  });
+
+  it("Z-7: お手本最速×ギミックでも不変条件を満たし、正解はお手本になる", () => {
+    let seen = 0;
+    for (let seed = 0; seed < 100; seed++) {
+      const qs = buildQuestions(data, TOTAL_Q, seededRng(seed), {
+        tricks,
+        trickRate: 1,
+        targetWinRate: 1,
+      });
+      for (const q of qs) {
+        expectInvariants(q);
+        expect(correctAnswerId(q)).toBe(q.target.poke.id);
+        if (q.disguise) seen++;
+      }
+    }
+    expect(seen).toBeGreaterThan(0);
   });
 
   it("Z-6: 化けの皮には「明らかに速い」「明らかに遅い」の両方が出現する", () => {
@@ -212,7 +244,7 @@ describe("buildQuestions (ゾロアークギミック)", () => {
       const qs = buildQuestions(data, TOTAL_Q, seededRng(seed), { tricks, trickRate: 1 });
       for (const q of qs) {
         if (!q.disguise) continue;
-        const ans = correctChoice(q);
+        const ans = correctChoice(q)!;
         if (trickIds.has(ans.poke.id)) zoroWinners.add(ans.poke.id);
       }
     }

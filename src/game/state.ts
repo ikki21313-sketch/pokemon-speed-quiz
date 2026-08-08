@@ -1,5 +1,5 @@
 import type { GameState, Question } from "./types";
-import { TOTAL_Q, TRICK_RATE, correctChoice } from "./types";
+import { TOTAL_Q, TRICK_RATE, TARGET_WIN_RATE, correctAnswerId } from "./types";
 import { buildQuestions } from "./question";
 import { loadPokeData, loadTricksters } from "../data/loader";
 
@@ -8,6 +8,7 @@ export function newGame(): GameState {
     questions: buildQuestions(loadPokeData(), TOTAL_Q, Math.random, {
       tricks: loadTricksters(),
       trickRate: TRICK_RATE,
+      targetWinRate: TARGET_WIN_RATE,
     }),
     index: 0,
     score: 0,
@@ -32,7 +33,7 @@ export function revealDisguise(state: GameState): boolean {
 /** 化け問題で、正解が化けたゾロアーク側にある(=実体の正解が隠れている)か */
 export function isAnswerHidden(q: Question): boolean {
   if (!q.disguise) return false;
-  const ansId = correctChoice(q).poke.id;
+  const ansId = correctAnswerId(q);
   return q.disguise.slots.some((s) => q.choices[s.pos].poke.id === ansId);
 }
 
@@ -61,7 +62,7 @@ export function answer(
 ): boolean | "revealed" | null {
   const q = currentQuestion(state);
   if (q.pickedId !== null) return null;
-  const isCorrectPick = pickedId === correctChoice(q).poke.id;
+  const isCorrectPick = pickedId === correctAnswerId(q);
   if (q.disguise && !q.disguise.revealed) {
     const isDisguisedPick = q.disguise.slots.some(
       (s) => q.choices[s.pos].poke.id === pickedId

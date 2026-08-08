@@ -1,5 +1,5 @@
 import type { GameState, Entry, Question } from "../../game/types";
-import { correctChoice, SPREAD_LABEL } from "../../game/types";
+import { correctAnswerId, SPREAD_LABEL } from "../../game/types";
 import { esc, hydrateImages, pokeImgHtml } from "../components";
 
 function comment(score: number, total: number): string {
@@ -14,12 +14,14 @@ function comment(score: number, total: number): string {
 function chipHtml(q: Question, e: Entry): string {
   const isTarget = e.poke.id === q.target.poke.id;
   const picked = q.pickedId === e.poke.id;
+  const ansId = correctAnswerId(q);
   const cls = ["chip"];
   let tag = "";
   if (isTarget) {
     cls.push("chip-target");
+    if (ansId === e.poke.id) cls.push("chip-correct"); // お手本最速の問題
     tag = `<span class="chip-tag">お手本</span>`;
-  } else if (e.poke.id === correctChoice(q).poke.id) {
+  } else if (e.poke.id === ansId) {
     cls.push("chip-correct");
   } else if (picked) {
     cls.push("chip-wrong");

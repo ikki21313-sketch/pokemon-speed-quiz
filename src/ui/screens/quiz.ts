@@ -1,5 +1,5 @@
 import type { GameState } from "../../game/types";
-import { correctChoice } from "../../game/types";
+import { correctAnswerId } from "../../game/types";
 import { currentQuestion, isLastQuestion } from "../../game/state";
 import {
   esc,
@@ -25,7 +25,7 @@ export function renderQuiz(
   const q = currentQuestion(state);
   const answered = q.pickedId !== null;
   const disguise = q.disguise;
-  const answerId = correctChoice(q).poke.id;
+  const answerId = correctAnswerId(q);
 
   const targetSpeed = answered
     ? speedDetailHtml(q.target)
@@ -77,14 +77,15 @@ export function renderQuiz(
         <div class="q-number">もんだい ${state.index + 1}<span class="q-total">/${state.questions.length}</span></div>
         <div class="dots">${progressDotsHtml(state)}</div>
       </header>
-      <div class="card target-card">
+      <button class="card target-card ${answered && answerId === q.target.poke.id ? "choice-correct" : ""}" data-pick="${q.target.poke.id}" ${answered ? "disabled" : ""}>
+        ${answered && q.pickedId === q.target.poke.id ? `<span class="badge ${q.correct ? "badge-correct" : "badge-wrong"}">${q.correct ? "せいかい！" : "ざんねん…"}</span>` : ""}
         <div class="target-label">お手本</div>
         ${spreadBadgeHtml(q.target.spread)}
         ${pokeImgHtml(q.target.poke, "poke-img")}
         <div class="poke-name">${esc(q.target.poke.jaName)} <span class="poke-no">No.${q.target.poke.id}</span></div>
         ${targetSpeed}
-      </div>
-      <p class="question-text">${esc(q.target.poke.jaName)}より すばやいのは どれ？<br><span class="question-hint">(振り方も 計算に いれよう)</span></p>
+      </button>
+      <p class="question-text">${esc(q.target.poke.jaName)}より すばやいのは どれ？<br><span class="question-hint">(いなければ お手本を タップ！ 振り方も 計算に いれよう)</span></p>
       ${revealBanner}
       <div class="choices choices-4">${choicesHtml}</div>
       <footer class="quiz-footer">

@@ -59,9 +59,17 @@ export interface Question {
   correct: boolean | null;   // 正誤(未回答は null)
 }
 
-/** お手本より速い唯一の正解選択肢を返す */
-export function correctChoice(q: Question): Entry {
-  return q.choices.find((c) => c.speed > q.target.speed)!;
+/**
+ * お手本より速い唯一の正解選択肢を返す。
+ * 「お手本自身が最速」の問題(速い選択肢が存在しない)では null。
+ */
+export function correctChoice(q: Question): Entry | null {
+  return q.choices.find((c) => c.speed > q.target.speed) ?? null;
+}
+
+/** 正解として選ぶべきポケモンの ID (お手本最速の問題ではお手本の ID) */
+export function correctAnswerId(q: Question): number {
+  return correctChoice(q)?.poke.id ?? q.target.poke.id;
 }
 
 export interface GameState {
@@ -96,6 +104,13 @@ export const TARGET_COMPUTED_MAX = 175;
 
 /** 化けギミックの発生率 */
 export const TRICK_RATE = 0.05;
+
+/**
+ * 「お手本自身が最速(=お手本が正解)」になる確率。
+ * 5枠(選択肢4+お手本)の一様ランダムに相当する 0.2 を既定とする。
+ * 0 にすると旧仕様(常に選択肢の1枚が正解)へ切り戻せる。
+ */
+export const TARGET_WIN_RATE = 0.2;
 
 /** 化け問題で放置時に正体が自動出現するまでの時間 (ms) */
 export const REVEAL_IDLE_MS = 10_000;

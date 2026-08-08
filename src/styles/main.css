@@ -155,8 +155,22 @@ body {
 }
 
 .target-card {
+  position: relative;
   text-align: center;
   min-width: min(320px, 100%);
+  font-family: var(--font-body);
+  font-size: 1rem;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.target-card:not(:disabled):hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 0 var(--ink);
+}
+
+.target-card:disabled {
+  cursor: default;
 }
 
 .target-label {

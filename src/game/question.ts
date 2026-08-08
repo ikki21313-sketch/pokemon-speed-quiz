@@ -15,6 +15,8 @@ export interface BuildOptions {
   tricks?: Pokemon[];
   /** 化けギミックの発生率 (0〜1) */
   trickRate?: number;
+  /** お手本自身が最速(=正解)になる確率 (0〜1)。0 で旧仕様に切り戻し */
+  targetWinRate?: number;
 }
 
 const MAX_ATTEMPTS = 500;
@@ -45,7 +47,9 @@ function shuffle<T>(arr: readonly T[], rng: () => number): T[] {
  * - C-3: 1ゲーム内で同じポケモンを再登場させない(試行上限到達時のみ緩和可)
  * - C-4: 選択肢の計算後実数値はお手本の計算値との差が ±COMPUTED_RANGE 以内
  *        (化けの皮は例外で、あえて −COMPUTED_RANGE を超えて遅いポケモンを表示する)
- * - C-5: お手本より計算値が速い選択肢(=正解)は、正体出現後の実体でちょうど1体
+ * - C-5: お手本より計算値が速い選択肢は、正体出現後の実体でちょうど1体。
+ *        ただし targetWinRate の確率で「お手本自身が最速」の問題になり、その場合は0体
+ *        (正解はお手本自身を選ぶこと)
  * - C-6: ゾロアーク(ZOROARK_ID)は通常の出題プールに登場しない(化け専用)
  * - C-7: お手本の計算値は TARGET_COMPUTED_MIN〜MAX の範囲内
  * - C-8: 見かけの振り方構成は CHOICE_SPREADS (最速1・準速2・無振り1) で固定
@@ -70,7 +74,7 @@ export function buildQuestions(
   rng: () => number = Math.random,
   options: BuildOptions = {}
 ): Question[] {
-  const { tricks = [], trickRate = 0 } = options;
+  const { tricks = [], trickRate = 0, targetWinRate = 0 } = options;
   const pool = data.filter((t) => t[0] !== ZOROARK_ID); // C-6
   if (pool.length <= CHOICE_COUNT) throw new Error("not enough data");
   const used = new Set<number>();
@@ -78,6 +82,8 @@ export function buildQuestions(
 
   for (let qi = 0; qi < count; qi++) {
     const wantTrick = tricks.length >= 2 && rng() < trickRate;
+    // お手本自身が最速の問題: 選択肢4枚は(正体含め)全て遅い
+    const targetWins = rng() < targetWinRate;
 
     let target: Entry | null = null;
     let slots: Entry[] | null = null;
@@ -108,12 +114,13 @@ export function buildQuestions(
       }
 
       // ラベル先決め: 固定構成(C-8)をシャッフルして配り、正解位置は独立に確定
+      // (お手本最速の問題では pos は使われず、全枠が遅い側になる)
       const spreads: Spread[] = shuffle(CHOICE_SPREADS, rng);
       const pos = Math.floor(rng() * CHOICE_COUNT);
       const dPos = useTrick ? shuffle([...Array(CHOICE_COUNT).keys()], rng).slice(0, 2) : [];
       const isSkin = (i: number) => dPos.includes(i);
-      // 正解が通常枠ならその枠だけが速い。正解がゾロアーク枠なら通常枠は全て遅い
-      const wantFaster = (i: number) => i === pos && !isSkin(i);
+      // 正解が通常枠ならその枠だけが速い。正解がゾロアーク枠・お手本なら通常枠は全て遅い
+      const wantFaster = (i: number) => !targetWins && i === pos && !isSkin(i);
 
       // ゾロアーク2体: 正解枠なら速く、それ以外は遅い振り方を取る (C-5)
       let zoros: Map<number, Entry> | null = null;
@@ -123,7 +130,7 @@ export function buildQuestions(
         let ok = true;
         for (let k = 0; k < 2; k++) {
           const slot = dPos[k];
-          const wantFast = slot === pos;
+          const wantFast = !targetWins && slot === pos;
           const s = shuffle(SPREADS, rng).find((sp) => {
             const v = computedSpeed(forms[k].speed, sp);
             return (wantFast ? v > tc : v < tc) && !speedsTaken.has(v);
