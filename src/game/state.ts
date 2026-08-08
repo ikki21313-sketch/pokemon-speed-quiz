@@ -1,5 +1,5 @@
 import type { GameState, Question } from "./types";
-import { TOTAL_Q, TRICK_RATE, TRICK_ANSWER_RATE, correctChoice } from "./types";
+import { TOTAL_Q, TRICK_RATE, correctChoice } from "./types";
 import { buildQuestions } from "./question";
 import { loadPokeData, loadTricksters } from "../data/loader";
 
@@ -8,7 +8,6 @@ export function newGame(): GameState {
     questions: buildQuestions(loadPokeData(), TOTAL_Q, Math.random, {
       tricks: loadTricksters(),
       trickRate: TRICK_RATE,
-      trickAnswerRate: TRICK_ANSWER_RATE,
     }),
     index: 0,
     score: 0,

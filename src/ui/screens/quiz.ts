@@ -34,13 +34,13 @@ export function renderQuiz(
   const choicesHtml = q.choices
     .map((e, idx) => {
       // 化けギミック: 正体出現前は「化けの皮」のポケモン+振り方を表示する
-      const isDisguisedSlot = disguise !== null && disguise.pos === idx;
-      const display = isDisguisedSlot && !disguise.revealed ? disguise.shown : e;
+      const dSlot = disguise?.slots.find((s) => s.pos === idx) ?? null;
+      const display = dSlot && !disguise!.revealed ? dSlot.shown : e;
       const isAnswerCard = e.poke.id === answerId;
       const isPicked = e.poke.id === q.pickedId;
       const cls = ["card", "choice-card"];
       if (answered && isAnswerCard) cls.push("choice-correct");
-      if (isDisguisedSlot && disguise.revealed && justRevealed) cls.push("glitch");
+      if (dSlot && disguise!.revealed && justRevealed) cls.push("glitch");
       const badge = !answered
         ? ""
         : isPicked
@@ -63,7 +63,11 @@ export function renderQuiz(
 
   const revealBanner =
     disguise?.revealed && !answered
-      ? `<p class="reveal-banner" role="alert">！？ ${esc(disguise.shown.poke.jaName)}は ${esc(q.choices[disguise.pos].poke.jaName)}が ばけたすがた だった！<br>ここからが ほんとうの しょうぶ！</p>`
+      ? `<p class="reveal-banner" role="alert">！？ ${disguise.slots
+          .map((s) => esc(s.shown.poke.jaName))
+          .join("と ")}は ${disguise.slots
+          .map((s) => esc(q.choices[s.pos].poke.jaName))
+          .join("と ")}が ばけたすがた だった！<br>どっちが ${esc(q.target.poke.jaName)}より はやい？</p>`
       : "";
 
   root.innerHTML = `

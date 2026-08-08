@@ -36,11 +36,19 @@ export interface Entry {
   speed: number; // computedSpeed(poke.speed, spread)
 }
 
-/** ゾロアークギミック: 選択肢の1枚が別のポケモンに化けている */
+/** 化けている1枠分 */
+export interface DisguiseSlot {
+  pos: number;  // 化けている choices のインデックス
+  shown: Entry; // 見た目として表示するポケモン+振り方(化けの皮)
+}
+
+/**
+ * ゾロアークギミック: ゾロアークとヒスイゾロアークが必ずセットで、
+ * 選択肢の2枚に化けている。出現は同時。
+ */
 export interface Disguise {
-  pos: number;       // 化けている choices のインデックス
-  shown: Entry;      // 見た目として表示するポケモン+振り方(化けの皮)
-  revealed: boolean; // 正体が出現済みか
+  slots: DisguiseSlot[]; // 常に2枠
+  revealed: boolean;     // 正体が出現済みか
 }
 
 export interface Question {
@@ -88,9 +96,6 @@ export const TARGET_COMPUTED_MAX = 175;
 
 /** 化けギミックの発生率 */
 export const TRICK_RATE = 0.05;
-
-/** 化けギミック発生時に「ゾロアークが正解」になる割合 */
-export const TRICK_ANSWER_RATE = 0.5;
 
 /** 化け問題で放置時に正体が自動出現するまでの時間 (ms) */
 export const REVEAL_IDLE_MS = 10_000;
