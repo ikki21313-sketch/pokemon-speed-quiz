@@ -42,10 +42,10 @@ export function attachFallback(img: HTMLImageElement, id: number): void {
 
 /** 次問の画像を先読みする(化けギミックがある場合は化けの皮と正体の両方) */
 export function preloadQuestionImages(q: Question): void {
-  const targets = [q.target, ...q.choices];
-  if (q.disguise) targets.push(q.disguise.shown);
-  for (const p of targets) {
+  const entries = [q.target, ...q.choices];
+  if (q.disguise) entries.push(q.disguise.shown);
+  for (const e of entries) {
     const img = new Image();
-    img.src = officialArtworkUrl(p.id);
+    img.src = officialArtworkUrl(e.poke.id);
   }
 }

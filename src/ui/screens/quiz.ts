@@ -1,18 +1,18 @@
 import type { GameState } from "../../game/types";
-import { correctIds } from "../../game/types";
+import { correctChoice } from "../../game/types";
 import { currentQuestion, isLastQuestion } from "../../game/state";
 import {
   esc,
   progressDotsHtml,
-  speedBarHtml,
+  spreadBadgeHtml,
+  speedDetailHtml,
   animateSpeedBars,
   hydrateImages,
   pokeImgHtml,
 } from "../components";
 
 export interface QuizHandlers {
-  onToggle: (id: number) => void;
-  onConfirm: () => void;
+  onAnswer: (id: number) => void;
   onNext: () => void;
 }
 
@@ -20,41 +20,41 @@ export function renderQuiz(
   root: HTMLElement,
   state: GameState,
   handlers: QuizHandlers,
-  selection: ReadonlySet<number>,
   justRevealed = false
 ): void {
   const q = currentQuestion(state);
-  const answered = q.pickedIds !== null;
+  const answered = q.pickedId !== null;
   const disguise = q.disguise;
-  const expected = correctIds(q);
+  const answerId = correctChoice(q).poke.id;
 
   const targetSpeed = answered
-    ? `<div class="speed-value">すばやさ <strong>${q.target.speed}</strong></div>${speedBarHtml(q.target.speed)}`
+    ? speedDetailHtml(q.target)
     : `<div class="speed-value">すばやさ <strong>???</strong></div>`;
 
   const choicesHtml = q.choices
-    .map((p, idx) => {
-      // 化けギミック: 正体出現前は「化けの皮」のポケモンを表示する
+    .map((e, idx) => {
+      // 化けギミック: 正体出現前は「化けの皮」のポケモン+振り方を表示する
       const isDisguisedSlot = disguise !== null && disguise.pos === idx;
-      const display = isDisguisedSlot && !disguise.revealed ? disguise.shown : p;
-      const isSelected = answered
-        ? q.pickedIds!.includes(p.id)
-        : selection.has(p.id);
-      const isAnswerCard = expected.includes(p.id);
+      const display = isDisguisedSlot && !disguise.revealed ? disguise.shown : e;
+      const isAnswerCard = e.poke.id === answerId;
+      const isPicked = e.poke.id === q.pickedId;
       const cls = ["card", "choice-card"];
-      if (!answered && isSelected) cls.push("choice-selected");
       if (answered && isAnswerCard) cls.push("choice-correct");
-      if (answered && isSelected && !isAnswerCard) cls.push("choice-picked-wrong");
       if (isDisguisedSlot && disguise.revealed && justRevealed) cls.push("glitch");
-      const check = isSelected ? `<span class="check-mark" aria-hidden="true">✓</span>` : "";
+      const badge = !answered
+        ? ""
+        : isPicked
+          ? `<span class="badge ${q.correct ? "badge-correct" : "badge-wrong"}">${q.correct ? "せいかい！" : "ざんねん…"}</span>`
+          : "";
       const speed = answered
-        ? `<div class="speed-value">すばやさ <strong>${p.speed}</strong></div>${speedBarHtml(p.speed)}`
+        ? speedDetailHtml(e)
         : `<div class="speed-value">すばやさ <strong>???</strong></div>`;
       return `
-        <button class="${cls.join(" ")}" data-pick="${p.id}" aria-pressed="${isSelected}" ${answered ? "disabled" : ""}>
-          ${check}
-          ${pokeImgHtml(display, "poke-img")}
-          <div class="poke-name">${esc(display.jaName)}</div>
+        <button class="${cls.join(" ")}" data-pick="${e.poke.id}" ${answered ? "disabled" : ""}>
+          ${badge}
+          ${spreadBadgeHtml(display.spread)}
+          ${pokeImgHtml(display.poke, "poke-img")}
+          <div class="poke-name">${esc(display.poke.jaName)}</div>
           ${speed}
         </button>
       `;
@@ -63,16 +63,8 @@ export function renderQuiz(
 
   const revealBanner =
     disguise?.revealed && !answered
-      ? `<p class="reveal-banner" role="alert">！？ ${esc(disguise.shown.jaName)}は ${esc(q.choices[disguise.pos].jaName)}が ばけたすがた だった！<br>もういちど えらぼう！</p>`
+      ? `<p class="reveal-banner" role="alert">！？ ${esc(disguise.shown.poke.jaName)}は ${esc(q.choices[disguise.pos].poke.jaName)}が ばけたすがた だった！<br>ここからが ほんとうの しょうぶ！</p>`
       : "";
-
-  const resultBanner = answered
-    ? `<p class="result-banner ${q.correct ? "result-banner-correct" : "result-banner-wrong"}" role="alert">${q.correct ? "せいかい！" : "ざんねん…"}</p>`
-    : "";
-
-  const footer = answered
-    ? `<button class="btn btn-primary" id="next-btn">${isLastQuestion(state) ? "けっかを見る" : "つぎの問題へ"}</button>`
-    : `<button class="btn btn-primary" id="confirm-btn" ${selection.size === 0 ? "disabled" : ""}>けってい</button>`;
 
   root.innerHTML = `
     <div class="screen screen-quiz">
@@ -82,15 +74,17 @@ export function renderQuiz(
       </header>
       <div class="card target-card">
         <div class="target-label">お手本</div>
-        ${pokeImgHtml(q.target, "poke-img")}
-        <div class="poke-name">${esc(q.target.jaName)} <span class="poke-no">No.${q.target.id}</span></div>
+        ${spreadBadgeHtml(q.target.spread)}
+        ${pokeImgHtml(q.target.poke, "poke-img")}
+        <div class="poke-name">${esc(q.target.poke.jaName)} <span class="poke-no">No.${q.target.poke.id}</span></div>
         ${targetSpeed}
       </div>
-      <p class="question-text">${esc(q.target.jaName)}より すばやいのを ぜんぶ えらぼう！<br><span class="question-hint">(こたえは 1〜3匹。えらんだら「けってい」)</span></p>
+      <p class="question-text">${esc(q.target.poke.jaName)}より すばやいのは どれ？<br><span class="question-hint">(振り方も 計算に いれよう)</span></p>
       ${revealBanner}
-      ${resultBanner}
       <div class="choices choices-4">${choicesHtml}</div>
-      <footer class="quiz-footer">${footer}</footer>
+      <footer class="quiz-footer">
+        ${answered ? `<button class="btn btn-primary" id="next-btn">${isLastQuestion(state) ? "けっかを見る" : "つぎの問題へ"}</button>` : ""}
+      </footer>
     </div>
   `;
 
@@ -100,12 +94,9 @@ export function renderQuiz(
   if (!answered) {
     for (const btn of root.querySelectorAll<HTMLButtonElement>("[data-pick]")) {
       btn.addEventListener("click", () =>
-        handlers.onToggle(Number(btn.dataset.pick))
+        handlers.onAnswer(Number(btn.dataset.pick))
       );
     }
-    root
-      .querySelector<HTMLButtonElement>("#confirm-btn")
-      ?.addEventListener("click", handlers.onConfirm);
   } else {
     root
       .querySelector<HTMLButtonElement>("#next-btn")!

@@ -1,5 +1,5 @@
-import type { GameState, Pokemon, Question } from "../../game/types";
-import { correctIds } from "../../game/types";
+import type { GameState, Entry, Question } from "../../game/types";
+import { correctChoice, SPREAD_LABEL } from "../../game/types";
 import { esc, hydrateImages, pokeImgHtml } from "../components";
 
 function comment(score: number, total: number): string {
@@ -11,19 +11,20 @@ function comment(score: number, total: number): string {
   return "すばやさは おくが ふかい…！";
 }
 
-function chipHtml(q: Question, p: Pokemon): string {
-  const picked = q.pickedIds?.includes(p.id) ?? false;
+function chipHtml(q: Question, e: Entry): string {
+  const isTarget = e.poke.id === q.target.poke.id;
+  const picked = q.pickedId === e.poke.id;
   const cls = ["chip"];
   let tag = "";
-  if (p.id === q.target.id) {
+  if (isTarget) {
     cls.push("chip-target");
     tag = `<span class="chip-tag">お手本</span>`;
-  } else if (correctIds(q).includes(p.id)) {
+  } else if (e.poke.id === correctChoice(q).poke.id) {
     cls.push("chip-correct");
   } else if (picked) {
     cls.push("chip-wrong");
   }
-  if (q.disguise && q.choices[q.disguise.pos].id === p.id) {
+  if (q.disguise && !isTarget && q.choices[q.disguise.pos].poke.id === e.poke.id) {
     tag += `<span class="chip-tag chip-tag-trick">ばけていた！</span>`;
   }
   if (picked) {
@@ -32,9 +33,10 @@ function chipHtml(q: Question, p: Pokemon): string {
   return `
     <div class="${cls.join(" ")}">
       ${tag}
-      ${pokeImgHtml(p, "chip-img")}
-      <div class="chip-name">${esc(p.jaName)}</div>
-      <div class="chip-speed">S ${p.speed}</div>
+      ${pokeImgHtml(e.poke, "chip-img")}
+      <div class="chip-name">${esc(e.poke.jaName)}</div>
+      <div class="chip-spread">${SPREAD_LABEL[e.spread]}</div>
+      <div class="chip-speed">${e.speed}<span class="chip-base">(種族値 ${e.poke.speed})</span></div>
     </div>
   `;
 }
@@ -54,11 +56,11 @@ export function renderResult(
         <li class="history-row">
           <div class="history-head">
             ${mark}
-            <span class="history-q">Q${i + 1}. ${esc(q.target.jaName)}より すばやいのを ぜんぶ えらべ！</span>
+            <span class="history-q">Q${i + 1}. ${esc(q.target.poke.jaName)}(${SPREAD_LABEL[q.target.spread]})より すばやいのは？</span>
           </div>
           <div class="chips">
             ${chipHtml(q, q.target)}
-            ${q.choices.map((p) => chipHtml(q, p)).join("")}
+            ${q.choices.map((e) => chipHtml(q, e)).join("")}
           </div>
         </li>
       `;

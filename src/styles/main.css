@@ -221,34 +221,9 @@ body {
   cursor: default;
 }
 
-.choice-selected {
-  border-color: var(--yellow);
-  box-shadow: 4px 4px 0 var(--yellow);
-  background: #fff8dc;
-}
-
 .choice-correct {
   border-color: var(--green);
   box-shadow: 4px 4px 0 var(--green);
-}
-
-.choice-picked-wrong {
-  border-color: var(--red);
-  box-shadow: 4px 4px 0 var(--red);
-}
-
-.check-mark {
-  position: absolute;
-  top: 6px;
-  right: 8px;
-  width: 24px;
-  height: 24px;
-  line-height: 20px;
-  border-radius: 50%;
-  background: var(--yellow);
-  border: 2px solid var(--ink);
-  font-weight: 700;
-  font-size: 0.9rem;
 }
 
 .question-hint {
@@ -257,23 +232,33 @@ body {
   opacity: 0.85;
 }
 
-.result-banner {
-  font-family: var(--font-display);
-  font-size: 1.4rem;
+.spread-badge {
+  display: inline-block;
+  font-size: 0.8rem;
   font-weight: 700;
-  margin: 0;
-  padding: 4px 24px;
-  border: 3px solid var(--ink);
-  border-radius: 10px;
   color: #fff;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  padding: 0 10px;
+  margin-bottom: 4px;
 }
 
-.result-banner-correct {
-  background: var(--green);
+.spread-max {
+  background: #d4562e;
 }
 
-.result-banner-wrong {
-  background: var(--red);
+.spread-semi {
+  background: #2e7fd4;
+}
+
+.spread-none {
+  background: #6b7280;
+}
+
+.speed-base {
+  font-size: 0.75rem;
+  opacity: 0.7;
+  margin-left: 6px;
 }
 
 .badge {
@@ -514,9 +499,23 @@ body {
   font-weight: 700;
 }
 
+.chip-spread {
+  font-size: 0.65rem;
+  font-weight: 700;
+  opacity: 0.8;
+}
+
 .chip-speed {
   font-family: var(--font-display);
-  font-size: 0.8rem;
+  font-size: 0.85rem;
+}
+
+.chip-base {
+  font-family: var(--font-body);
+  font-size: 0.6rem;
+  opacity: 0.7;
+  margin-left: 3px;
+  display: block;
 }
 
 /* --- レスポンシブ / アクセシビリティ --- */

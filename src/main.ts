@@ -1,6 +1,14 @@
 import "./styles/main.css";
 import type { GameState } from "./game/types";
-import { newGame, answer, advance, isLastQuestion, currentQuestion } from "./game/state";
+import { REVEAL_IDLE_MS } from "./game/types";
+import {
+  newGame,
+  answer,
+  advance,
+  isLastQuestion,
+  currentQuestion,
+  revealDisguise,
+} from "./game/state";
 import { preloadQuestionImages } from "./ui/images";
 import { renderTitle } from "./ui/screens/title";
 import { renderQuiz } from "./ui/screens/quiz";
@@ -15,31 +23,38 @@ let state: GameState = {
   phase: "title",
 };
 
-/** 現在の問題で選択中の選択肢 ID(確定前) */
-let selection = new Set<number>();
+/** 化け問題の放置タイマー */
+let revealTimer: ReturnType<typeof setTimeout> | null = null;
+
+function clearRevealTimer(): void {
+  if (revealTimer !== null) {
+    clearTimeout(revealTimer);
+    revealTimer = null;
+  }
+}
+
+/** 化け問題を放置したら正体を自動出現させる */
+function armRevealTimer(): void {
+  clearRevealTimer();
+  if (state.phase !== "quiz") return;
+  const q = currentQuestion(state);
+  if (q.pickedId !== null || !q.disguise || q.disguise.revealed) return;
+  revealTimer = setTimeout(() => {
+    revealTimer = null;
+    if (revealDisguise(state)) render(true);
+  }, REVEAL_IDLE_MS);
+}
 
 function startGame(): void {
   state = newGame();
-  selection = new Set();
   preloadQuestionImages(currentQuestion(state));
   render();
 }
 
-function handleToggle(id: number): void {
-  if (selection.has(id)) {
-    selection.delete(id);
-  } else {
-    selection.add(id);
-  }
-  render();
-}
-
-function handleConfirm(): void {
-  if (selection.size === 0) return;
-  const result = answer(state, [...selection]);
+function handleAnswer(pickedId: number): void {
+  const result = answer(state, pickedId);
   if (result === "revealed") {
-    // ゾロアークが出現。回答は確定させず、選び直しのためリセットして再描画
-    selection = new Set();
+    // ゾロアークが出現。回答は確定させず再回答を待つ
     render(true);
     return;
   }
@@ -52,12 +67,12 @@ function handleConfirm(): void {
 
 function handleNext(): void {
   advance(state);
-  selection = new Set();
   render();
   window.scrollTo({ top: 0 });
 }
 
 function render(justRevealed = false): void {
+  clearRevealTimer();
   switch (state.phase) {
     case "title":
       renderTitle(root, startGame);
@@ -66,10 +81,10 @@ function render(justRevealed = false): void {
       renderQuiz(
         root,
         state,
-        { onToggle: handleToggle, onConfirm: handleConfirm, onNext: handleNext },
-        selection,
+        { onAnswer: handleAnswer, onNext: handleNext },
         justRevealed
       );
+      armRevealTimer();
       break;
     case "result":
       renderResult(root, state, startGame);

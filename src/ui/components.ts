@@ -1,4 +1,5 @@
-import type { GameState, Pokemon } from "../game/types";
+import type { GameState, Pokemon, Entry, Spread } from "../game/types";
+import { SPREAD_LABEL, SPEED_BAR_MAX } from "../game/types";
 import { attachFallback } from "./images";
 
 export function esc(s: string): string {
@@ -22,15 +23,27 @@ export function progressDotsHtml(state: GameState): string {
     .join("");
 }
 
-const SPEED_MAX = 200;
+/** 振り方バッジ (最速/準速/無振り) */
+export function spreadBadgeHtml(spread: Spread): string {
+  return `<span class="spread-badge spread-${spread}">${SPREAD_LABEL[spread]}</span>`;
+}
 
-/** 素早さバー。回答時に 0% → 実値へアニメーションさせる */
+/** 計算後実数値バー。回答時に 0% → 実値へアニメーションさせる */
 export function speedBarHtml(speed: number): string {
-  const pct = Math.min(100, (speed / SPEED_MAX) * 100);
+  const pct = Math.min(100, (speed / SPEED_BAR_MAX) * 100);
   return (
-    `<div class="speed-bar" role="img" aria-label="すばやさ ${speed}">` +
+    `<div class="speed-bar" role="img" aria-label="すばやさ実数値 ${speed}">` +
     `<div class="speed-bar-fill" data-pct="${pct.toFixed(1)}" style="width:0%"></div>` +
     `</div>`
+  );
+}
+
+/** 回答後の実数値表示: 計算値 + 種族値の内訳 */
+export function speedDetailHtml(e: Entry): string {
+  return (
+    `<div class="speed-value">すばやさ <strong>${e.speed}</strong>` +
+    `<span class="speed-base">(種族値 ${e.poke.speed})</span></div>` +
+    speedBarHtml(e.speed)
   );
 }
 
