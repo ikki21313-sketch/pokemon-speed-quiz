@@ -3,6 +3,8 @@ import {
   CHOICE_COUNT,
   COMPUTED_RANGE,
   SPREADS,
+  TARGET_COMPUTED_MIN,
+  TARGET_COMPUTED_MAX,
   ZOROARK_ID,
   computedSpeed,
 } from "./types";
@@ -45,10 +47,12 @@ function shuffle<T>(arr: readonly T[], rng: () => number): T[] {
  * - C-4: 選択肢の計算後実数値はお手本の計算値との差が ±COMPUTED_RANGE 以内
  * - C-5: お手本より計算値が速い選択肢(=正解)は、正体出現後の実体でちょうど1体
  * - C-6: ゾロアーク(ZOROARK_ID)は通常の出題プールに登場しない(化け専用)
+ * - C-7: お手本の計算値は TARGET_COMPUTED_MIN〜MAX の範囲内
  *
- * 化けギミック(trickRate):
- * - 正解モード(trickAnswerRate): 見かけの4体は全て遅く、正体のゾロアークだけが速い
- * - 非正解モード: 見かけ通り正解が1体おり、ゾロアークは遅い選択肢に化けている
+ * 振り方バイアス対策(ラベル先決め・独立割り当て):
+ * 4枚の振り方と正解の位置を、ポケモンを探す前に互いに独立なランダムで確定する。
+ * これにより「振り方ラベル」と「正誤」が無相関になり、ラベル読みのメタが成立しない。
+ * C-7 の範囲制限は「どの振り方×速い/遅いの窓にも該当ポケモンが存在する」ための条件。
  */
 export function buildQuestions(
   data: PokeTuple[],
@@ -67,21 +71,23 @@ export function buildQuestions(
     const answerMode = wantTrick && rng() < trickAnswerRate;
 
     let target: Entry | null = null;
-    let picked: Entry[] | null = null;
+    let slots: Entry[] | null = null;
     let zoro: Entry | null = null;
+    let correctPos = 0;
 
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       const relaxUsed = attempt >= RELAX_AFTER;
       const useTrick = wantTrick && attempt < DROP_TRICK_AFTER;
 
+      // お手本 (C-7: 計算値がレンジ内になるまで引き直し)
       const t = pool[Math.floor(rng() * pool.length)];
       if (!relaxUsed && used.has(t[0])) continue;
       const tEntry = makeEntry(toPokemon(t), SPREADS[Math.floor(rng() * SPREADS.length)]);
       const tc = tEntry.speed;
+      if (tc < TARGET_COMPUTED_MIN || tc > TARGET_COMPUTED_MAX) continue;
       const speedsTaken = new Set<number>([tc]);
 
-      // 化けギミック: 正体の振り方を先に決める。
-      // 正解モードでは正体が速く、非正解モードでは遅くなければならない。
+      // 化けギミック: 正体の振り方を先に決める (正解モードなら速く、非正解モードなら遅く)
       let zoroEntry: Entry | null = null;
       if (useTrick) {
         const form = tricks[Math.floor(rng() * tricks.length)];
@@ -93,56 +99,64 @@ export function buildQuestions(
             break;
           }
         }
-        if (!zoroEntry) continue; // この目標では化けが成立しない
+        if (!zoroEntry) continue;
         speedsTaken.add(zoroEntry.speed);
       }
 
-      // 見かけの選択肢: 正解モードなら4体全て遅く、通常は速い1体+遅い3体 (C-5)
-      const needFaster = useTrick && answerMode ? 0 : 1;
-      let faster: Entry | null = null;
-      const slower: Entry[] = [];
-      for (const c of shuffle(pool, rng)) {
-        if (c[0] === t[0]) continue;
-        if (!relaxUsed && used.has(c[0])) continue;
-        for (const s of shuffle(SPREADS, rng)) {
-          const cc = computedSpeed(c[2], s);
+      // ラベル先決め: 4枚の振り方と正解位置を独立に確定
+      const spreads: Spread[] = Array.from(
+        { length: CHOICE_COUNT },
+        () => SPREADS[Math.floor(rng() * SPREADS.length)]
+      );
+      const pos = Math.floor(rng() * CHOICE_COUNT);
+      // 正解モードでは見かけの4体は全て遅い (正体だけが速い)
+      const faster = (i: number) => !(useTrick && answerMode) && i === pos;
+
+      // 各スロットに合うポケモンを探す
+      const found: Entry[] = [];
+      const idsTaken = new Set<number>([t[0]]);
+      for (let i = 0; i < CHOICE_COUNT; i++) {
+        let entry: Entry | null = null;
+        for (const c of shuffle(pool, rng)) {
+          if (idsTaken.has(c[0])) continue;
+          if (!relaxUsed && used.has(c[0])) continue;
+          const cc = computedSpeed(c[2], spreads[i]);
           if (speedsTaken.has(cc)) continue; // C-2
           if (Math.abs(cc - tc) > COMPUTED_RANGE) continue; // C-4
-          if (cc > tc && needFaster === 1 && faster === null) {
-            faster = makeEntry(toPokemon(c), s);
-            speedsTaken.add(cc);
-            break;
-          }
-          if (cc < tc && slower.length < CHOICE_COUNT - needFaster) {
-            slower.push(makeEntry(toPokemon(c), s));
-            speedsTaken.add(cc);
-            break;
-          }
+          if (faster(i) !== cc > tc) continue; // C-5 (側の一致)
+          entry = makeEntry(toPokemon(c), spreads[i]);
+          break;
         }
-        if (slower.length === CHOICE_COUNT - needFaster && (needFaster === 0 || faster !== null)) break;
+        if (!entry) break;
+        found.push(entry);
+        idsTaken.add(entry.poke.id);
+        speedsTaken.add(entry.speed);
       }
-      if (slower.length < CHOICE_COUNT - needFaster) continue;
-      if (needFaster === 1 && faster === null) continue;
+      if (found.length < CHOICE_COUNT) continue;
 
       target = tEntry;
-      picked = faster ? [faster, ...slower] : [...slower];
+      slots = found;
       zoro = zoroEntry;
+      correctPos = pos;
       break;
     }
-    if (!target || !picked) throw new Error("failed to build a question");
+    if (!target || !slots) throw new Error("failed to build a question");
 
-    const choices = shuffle(picked, rng);
+    const choices = slots;
     for (const e of [target, ...choices]) used.add(e.poke.id);
 
-    // 化けギミック: 正解モードは任意の1枚、非正解モードは遅い選択肢の1枚を差し替える。
-    // どちらも正体出現後は「お手本より速いのがちょうど1体」になる (C-5)。
+    // 化けギミック: 正解モードは任意の1枚、非正解モードは正解以外の1枚を差し替える。
+    // 振り方ラベルは差し替え前のスロットのものが化けの皮として表示される。
     let disguise: Question["disguise"] = null;
     if (zoro) {
-      const candidates = choices
-        .map((c, i) => ({ c, i }))
-        .filter(({ c }) => answerMode || c.speed < target!.speed);
-      const { c: shown, i: pos } = candidates[Math.floor(rng() * candidates.length)];
-      disguise = { pos, shown, revealed: false };
+      let pos: number;
+      if (answerMode) {
+        pos = Math.floor(rng() * CHOICE_COUNT);
+      } else {
+        const cands = [...Array(CHOICE_COUNT).keys()].filter((i) => i !== correctPos);
+        pos = cands[Math.floor(rng() * cands.length)];
+      }
+      disguise = { pos, shown: choices[pos], revealed: false };
       choices[pos] = zoro;
     }
 

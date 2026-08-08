@@ -71,6 +71,14 @@ export const CHOICE_COUNT = 4;
 /** 出題範囲: 選択肢の計算後実数値とお手本の計算後実数値の差の上限 */
 export const COMPUTED_RANGE = 20;
 
+/**
+ * お手本の計算値の許容レンジ (C-7)。
+ * どの振り方×速い/遅いの窓にも該当ポケモンが存在することを保証し、
+ * 振り方ラベルと正誤の独立性(バイアス対策)を成立させるための制限。
+ */
+export const TARGET_COMPUTED_MIN = 65;
+export const TARGET_COMPUTED_MAX = 175;
+
 /** 化けギミックの発生率 */
 export const TRICK_RATE = 0.05;
 

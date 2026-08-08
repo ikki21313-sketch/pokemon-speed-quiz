@@ -5,11 +5,13 @@ import {
   TOTAL_Q,
   CHOICE_COUNT,
   COMPUTED_RANGE,
+  TARGET_COMPUTED_MIN,
+  TARGET_COMPUTED_MAX,
   ZOROARK_ID,
   computedSpeed,
   correctChoice,
 } from "../src/game/types";
-import type { Question } from "../src/game/types";
+import type { Question, Spread } from "../src/game/types";
 
 /** 固定シードの乱数 (mulberry32) */
 function seededRng(seed: number): () => number {
@@ -53,6 +55,9 @@ function expectInvariants(q: Question): void {
     expect(c.poke.id).not.toBe(ZOROARK_ID);
   }
   expect(q.target.poke.id).not.toBe(ZOROARK_ID);
+  // C-7: お手本の計算値がレンジ内
+  expect(q.target.speed).toBeGreaterThanOrEqual(TARGET_COMPUTED_MIN);
+  expect(q.target.speed).toBeLessThanOrEqual(TARGET_COMPUTED_MAX);
 }
 
 describe("computedSpeed", () => {
@@ -91,6 +96,28 @@ describe("buildQuestions", () => {
       const qs = buildQuestions(data, TOTAL_Q, seededRng(seed));
       expect(qs).toHaveLength(TOTAL_Q);
       for (const q of qs) expectInvariants(q);
+    }
+  });
+
+  it("T-8: 振り方ラベルと正誤が無相関 (P(正解|ラベル) ≒ 25%)", () => {
+    const correctBy: Record<Spread, number> = { max: 0, semi: 0, none: 0 };
+    const cardBy: Record<Spread, number> = { max: 0, semi: 0, none: 0 };
+    for (let seed = 0; seed < 500; seed++) {
+      const qs = buildQuestions(data, TOTAL_Q, seededRng(seed));
+      for (const q of qs) {
+        correctBy[correctChoice(q).spread]++;
+        for (const c of q.choices) cardBy[c.spread]++;
+      }
+    }
+    for (const s of ["max", "semi", "none"] as Spread[]) {
+      const p = correctBy[s] / cardBy[s];
+      // 理論値 25%。固定シードなので決定的だが、余裕を見て ±3pt で検証
+      expect(p).toBeGreaterThan(0.22);
+      expect(p).toBeLessThan(0.28);
+      // ラベル自体の出現率も約 1/3 ずつ
+      const share = cardBy[s] / (cardBy.max + cardBy.semi + cardBy.none);
+      expect(share).toBeGreaterThan(0.3);
+      expect(share).toBeLessThan(0.37);
     }
   });
 });
