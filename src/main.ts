@@ -8,6 +8,7 @@ import {
   isLastQuestion,
   currentQuestion,
   revealDisguise,
+  hasVisibleFaster,
 } from "./game/state";
 import { preloadQuestionImages } from "./ui/images";
 import { renderTitle } from "./ui/screens/title";
@@ -33,12 +34,17 @@ function clearRevealTimer(): void {
   }
 }
 
-/** 化け問題を放置したら正体を自動出現させる */
+/**
+ * 「見た目上速そうなカードが1枚もない」化け問題を放置したら正体を自動出現させる。
+ * 速そうなカードが見えている場合はタイマーを張らない
+ * (プレイヤーはそれをクリックするはずで、スキップや釣りの体験を壊さないため)
+ */
 function armRevealTimer(): void {
   clearRevealTimer();
   if (state.phase !== "quiz") return;
   const q = currentQuestion(state);
   if (q.pickedId !== null || !q.disguise || q.disguise.revealed) return;
+  if (hasVisibleFaster(q)) return;
   revealTimer = setTimeout(() => {
     revealTimer = null;
     if (revealDisguise(state)) render(true);

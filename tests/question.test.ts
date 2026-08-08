@@ -48,11 +48,11 @@ function expectInvariants(q: Question): void {
   }
   // C-5: お手本より速いのは(正体ベースで)ちょうど1体
   expect(q.choices.filter((c) => c.speed > q.target.speed)).toHaveLength(1);
-  // C-4: 通常枠は ±COMPUTED_RANGE 以内。化けの皮はあえて範囲外の遅さ
+  // C-4: 通常枠は ±COMPUTED_RANGE 以内。化けの皮はあえて範囲外(速い側/遅い側どちらも可)
   for (const [i, c] of q.choices.entries()) {
     const slot = disguisedSlot(q, i);
     if (slot) {
-      expect(slot.shown.speed).toBeLessThan(q.target.speed - COMPUTED_RANGE);
+      expect(Math.abs(slot.shown.speed - q.target.speed)).toBeGreaterThan(COMPUTED_RANGE);
     } else {
       expect(Math.abs(c.speed - q.target.speed)).toBeLessThanOrEqual(COMPUTED_RANGE);
     }
@@ -165,38 +165,58 @@ describe("buildQuestions (ゾロアークギミック)", () => {
     expect(seen).toBeGreaterThan(0);
   });
 
-  it("Z-3: 見かけの正解は0体、正体は片方だけが速く正解になる", () => {
-    let seen = 0;
-    for (let seed = 0; seed < 30; seed++) {
+  it("Z-3: 正解は4枠から選ばれ、ゾロアークにも通常枠にも正解があり得る", () => {
+    const trickIds = new Set(tricks.map((t) => t.id));
+    let zoroWins = 0;
+    let normalWins = 0;
+    for (let seed = 0; seed < 50; seed++) {
       const qs = buildQuestions(data, TOTAL_Q, seededRng(seed), { tricks, trickRate: 1 });
       for (const q of qs) {
         if (!q.disguise) continue;
-        seen++;
-        // 見かけ(化けの皮+通常枠)は全て遅い
-        for (const [i, c] of q.choices.entries()) {
-          const slot = q.disguise.slots.find((s) => s.pos === i);
-          const visible = slot ? slot.shown : c;
-          expect(visible.speed).toBeLessThan(q.target.speed);
+        const ans = correctChoice(q);
+        if (trickIds.has(ans.poke.id)) {
+          zoroWins++;
+        } else {
+          normalWins++;
+          // 正解が通常枠のときはゾロアーク2体とも遅い
+          for (const s of q.disguise.slots) {
+            expect(q.choices[s.pos].speed).toBeLessThan(q.target.speed);
+          }
         }
-        // 正解は2体の正体のうちの片方
-        const actuals = q.disguise.slots.map((s) => q.choices[s.pos]);
-        const fasters = actuals.filter((a) => a.speed > q.target.speed);
-        expect(fasters).toHaveLength(1);
-        expect(correctChoice(q).poke.id).toBe(fasters[0].poke.id);
       }
     }
-    expect(seen).toBeGreaterThan(0);
+    expect(zoroWins).toBeGreaterThan(0);
+    expect(normalWins).toBeGreaterThan(0);
+  });
+
+  it("Z-6: 化けの皮には「明らかに速い」「明らかに遅い」の両方が出現する", () => {
+    let fastSkins = 0;
+    let slowSkins = 0;
+    for (let seed = 0; seed < 50; seed++) {
+      const qs = buildQuestions(data, TOTAL_Q, seededRng(seed), { tricks, trickRate: 1 });
+      for (const q of qs) {
+        for (const s of q.disguise?.slots ?? []) {
+          if (s.shown.speed > q.target.speed) fastSkins++;
+          else slowSkins++;
+        }
+      }
+    }
+    expect(fastSkins).toBeGreaterThan(0);
+    expect(slowSkins).toBeGreaterThan(0);
   });
 
   it("Z-4: 両フォルムとも正解になり得る (どちらかに固定されない)", () => {
-    const winners = new Set<number>();
+    const trickIds = new Set(tricks.map((t) => t.id));
+    const zoroWinners = new Set<number>();
     for (let seed = 0; seed < 100; seed++) {
       const qs = buildQuestions(data, TOTAL_Q, seededRng(seed), { tricks, trickRate: 1 });
       for (const q of qs) {
-        if (q.disguise) winners.add(correctChoice(q).poke.id);
+        if (!q.disguise) continue;
+        const ans = correctChoice(q);
+        if (trickIds.has(ans.poke.id)) zoroWinners.add(ans.poke.id);
       }
     }
-    expect(winners.size).toBe(2);
+    expect(zoroWinners.size).toBe(2);
   });
 
   it("Z-5: ギミックありでも全ての不変条件を満たす (300ゲーム)", () => {

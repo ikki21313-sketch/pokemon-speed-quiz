@@ -46,8 +46,9 @@ export function renderQuiz(
         : isPicked
           ? `<span class="badge ${q.correct ? "badge-correct" : "badge-wrong"}">${q.correct ? "せいかい！" : "ざんねん…"}</span>`
           : "";
+      // 未出現のまま確定した場合は化けの皮の数値を表示する (仮の問題として完結)
       const speed = answered
-        ? speedDetailHtml(e)
+        ? speedDetailHtml(display)
         : `<div class="speed-value">すばやさ <strong>???</strong></div>`;
       return `
         <button class="${cls.join(" ")}" data-pick="${e.poke.id}" ${answered ? "disabled" : ""}>
@@ -67,7 +68,7 @@ export function renderQuiz(
           .map((s) => esc(s.shown.poke.jaName))
           .join("と ")}は ${disguise.slots
           .map((s) => esc(q.choices[s.pos].poke.jaName))
-          .join("と ")}が ばけたすがた だった！<br>どっちが ${esc(q.target.poke.jaName)}より はやい？</p>`
+          .join("と ")}が ばけたすがた だった！<br>ここからが ほんとうの しょうぶ！</p>`
       : "";
 
   root.innerHTML = `

@@ -29,9 +29,29 @@ export function revealDisguise(state: GameState): boolean {
   return false;
 }
 
+/** 化け問題で、正解が化けたゾロアーク側にある(=実体の正解が隠れている)か */
+export function isAnswerHidden(q: Question): boolean {
+  if (!q.disguise) return false;
+  const ansId = correctChoice(q).poke.id;
+  return q.disguise.slots.some((s) => q.choices[s.pos].poke.id === ansId);
+}
+
+/** 未出現の化け問題で「見た目上お手本より速そうなカード」が1枚でもあるか */
+export function hasVisibleFaster(q: Question): boolean {
+  return q.choices.some((c, i) => {
+    const slot = q.disguise?.slots.find((s) => s.pos === i);
+    const visible = slot && !q.disguise!.revealed ? slot.shown : c;
+    return visible.speed > q.target.speed;
+  });
+}
+
 /**
  * 回答を処理する。
- * - 化けギミック未出現なら正誤判定せず正体を出現させ "revealed" を返す(再回答可能)
+ * - 化けギミック未出現の場合:
+ *   - 化けていないカードで1発目に正解を当てたら出現をスキップし、
+ *     仮の問題のまま正解確定
+ *   - それ以外(不正解、または化けているカードを選んだ)は正誤判定せず
+ *     正体を出現させ "revealed" を返す(再回答可能)
  * - それ以外は回答を確定し正誤を返す。お手本より速い唯一の選択肢なら正解。
  *   回答済みの問題には何もしない。
  */
@@ -41,9 +61,18 @@ export function answer(
 ): boolean | "revealed" | null {
   const q = currentQuestion(state);
   if (q.pickedId !== null) return null;
-  if (revealDisguise(state)) return "revealed";
+  const isCorrectPick = pickedId === correctChoice(q).poke.id;
+  if (q.disguise && !q.disguise.revealed) {
+    const isDisguisedPick = q.disguise.slots.some(
+      (s) => q.choices[s.pos].poke.id === pickedId
+    );
+    if (!isCorrectPick || isDisguisedPick) {
+      q.disguise.revealed = true;
+      return "revealed";
+    }
+  }
   q.pickedId = pickedId;
-  q.correct = pickedId === correctChoice(q).poke.id;
+  q.correct = isCorrectPick;
   if (q.correct) state.score++;
   return q.correct;
 }

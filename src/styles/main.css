@@ -518,6 +518,25 @@ body {
   display: block;
 }
 
+.disguise-sub {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 2px dashed #c9bfa3;
+}
+
+.sub-label {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #7a3fb8;
+  margin-bottom: 4px;
+}
+
+.chip-plain {
+  border-color: #7a3fb8;
+  opacity: 0.95;
+}
+
 /* --- レスポンシブ / アクセシビリティ --- */
 
 @media (max-width: 420px) {
