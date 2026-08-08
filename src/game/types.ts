@@ -68,6 +68,13 @@ export const TOTAL_Q = 10;
 /** 選択肢の数 */
 export const CHOICE_COUNT = 4;
 
+/**
+ * 選択肢4枚の振り方構成(固定)。見栄えのため「最速1・準速2・無振り1」とする。
+ * スロットへの割り当てはシャッフルし、正解位置は独立に選ぶため
+ * ラベルと正誤の無相関(P(正解|ラベル)=25%)は維持される。
+ */
+export const CHOICE_SPREADS: Spread[] = ["max", "semi", "semi", "none"];
+
 /** 出題範囲: 選択肢の計算後実数値とお手本の計算後実数値の差の上限 */
 export const COMPUTED_RANGE = 20;
 

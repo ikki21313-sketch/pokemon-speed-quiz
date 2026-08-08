@@ -58,6 +58,13 @@ function expectInvariants(q: Question): void {
   // C-7: お手本の計算値がレンジ内
   expect(q.target.speed).toBeGreaterThanOrEqual(TARGET_COMPUTED_MIN);
   expect(q.target.speed).toBeLessThanOrEqual(TARGET_COMPUTED_MAX);
+  // C-8: 見かけの振り方構成は 最速1・準速2・無振り1 (化けの皮も含めた表示上の構成)
+  const visible = q.choices.map((c, i) =>
+    q.disguise && q.disguise.pos === i ? q.disguise.shown : c
+  );
+  const count: Record<Spread, number> = { max: 0, semi: 0, none: 0 };
+  for (const v of visible) count[v.spread]++;
+  expect(count).toEqual({ max: 1, semi: 2, none: 1 });
 }
 
 describe("computedSpeed", () => {
@@ -114,11 +121,12 @@ describe("buildQuestions", () => {
       // 理論値 25%。固定シードなので決定的だが、余裕を見て ±3pt で検証
       expect(p).toBeGreaterThan(0.22);
       expect(p).toBeLessThan(0.28);
-      // ラベル自体の出現率も約 1/3 ずつ
-      const share = cardBy[s] / (cardBy.max + cardBy.semi + cardBy.none);
-      expect(share).toBeGreaterThan(0.3);
-      expect(share).toBeLessThan(0.37);
     }
+    // ラベルの出現率は固定構成どおり 最速25% / 準速50% / 無振り25%
+    const totalCards = cardBy.max + cardBy.semi + cardBy.none;
+    expect(cardBy.max / totalCards).toBeCloseTo(0.25, 1);
+    expect(cardBy.semi / totalCards).toBeCloseTo(0.5, 1);
+    expect(cardBy.none / totalCards).toBeCloseTo(0.25, 1);
   });
 });
 

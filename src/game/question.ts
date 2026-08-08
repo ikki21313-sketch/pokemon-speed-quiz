@@ -1,6 +1,7 @@
 import type { PokeTuple, Pokemon, Question, Entry, Spread } from "./types";
 import {
   CHOICE_COUNT,
+  CHOICE_SPREADS,
   COMPUTED_RANGE,
   SPREADS,
   TARGET_COMPUTED_MIN,
@@ -103,11 +104,9 @@ export function buildQuestions(
         speedsTaken.add(zoroEntry.speed);
       }
 
-      // ラベル先決め: 4枚の振り方と正解位置を独立に確定
-      const spreads: Spread[] = Array.from(
-        { length: CHOICE_COUNT },
-        () => SPREADS[Math.floor(rng() * SPREADS.length)]
-      );
+      // ラベル先決め: 固定構成(最速1・準速2・無振り1)をシャッフルして配り、
+      // 正解位置はそれと独立に確定する
+      const spreads: Spread[] = shuffle(CHOICE_SPREADS, rng);
       const pos = Math.floor(rng() * CHOICE_COUNT);
       // 正解モードでは見かけの4体は全て遅い (正体だけが速い)
       const faster = (i: number) => !(useTrick && answerMode) && i === pos;
