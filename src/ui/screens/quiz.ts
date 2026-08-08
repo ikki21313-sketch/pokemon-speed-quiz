@@ -1,4 +1,5 @@
 import type { GameState } from "../../game/types";
+import { correctIds } from "../../game/types";
 import { currentQuestion, isLastQuestion } from "../../game/state";
 import {
   esc,
@@ -10,7 +11,8 @@ import {
 } from "../components";
 
 export interface QuizHandlers {
-  onAnswer: (pickedId: number) => void;
+  onToggle: (id: number) => void;
+  onConfirm: () => void;
   onNext: () => void;
 }
 
@@ -18,11 +20,13 @@ export function renderQuiz(
   root: HTMLElement,
   state: GameState,
   handlers: QuizHandlers,
+  selection: ReadonlySet<number>,
   justRevealed = false
 ): void {
   const q = currentQuestion(state);
-  const answered = q.pickedId !== null;
+  const answered = q.pickedIds !== null;
   const disguise = q.disguise;
+  const expected = correctIds(q);
 
   const targetSpeed = answered
     ? `<div class="speed-value">すばやさ <strong>${q.target.speed}</strong></div>${speedBarHtml(q.target.speed)}`
@@ -33,22 +37,22 @@ export function renderQuiz(
       // 化けギミック: 正体出現前は「化けの皮」のポケモンを表示する
       const isDisguisedSlot = disguise !== null && disguise.pos === idx;
       const display = isDisguisedSlot && !disguise.revealed ? disguise.shown : p;
-      const isCorrectCard = p.id === q.fast.id;
-      const isPicked = p.id === q.pickedId;
+      const isSelected = answered
+        ? q.pickedIds!.includes(p.id)
+        : selection.has(p.id);
+      const isAnswerCard = expected.includes(p.id);
       const cls = ["card", "choice-card"];
-      if (answered && isCorrectCard) cls.push("choice-correct");
+      if (!answered && isSelected) cls.push("choice-selected");
+      if (answered && isAnswerCard) cls.push("choice-correct");
+      if (answered && isSelected && !isAnswerCard) cls.push("choice-picked-wrong");
       if (isDisguisedSlot && disguise.revealed && justRevealed) cls.push("glitch");
-      const badge = !answered
-        ? ""
-        : isPicked
-          ? `<span class="badge ${q.correct ? "badge-correct" : "badge-wrong"}">${q.correct ? "せいかい！" : "ざんねん…"}</span>`
-          : "";
+      const check = isSelected ? `<span class="check-mark" aria-hidden="true">✓</span>` : "";
       const speed = answered
         ? `<div class="speed-value">すばやさ <strong>${p.speed}</strong></div>${speedBarHtml(p.speed)}`
         : `<div class="speed-value">すばやさ <strong>???</strong></div>`;
       return `
-        <button class="${cls.join(" ")}" data-pick="${p.id}" ${answered ? "disabled" : ""}>
-          ${badge}
+        <button class="${cls.join(" ")}" data-pick="${p.id}" aria-pressed="${isSelected}" ${answered ? "disabled" : ""}>
+          ${check}
           ${pokeImgHtml(display, "poke-img")}
           <div class="poke-name">${esc(display.jaName)}</div>
           ${speed}
@@ -62,6 +66,14 @@ export function renderQuiz(
       ? `<p class="reveal-banner" role="alert">！？ ${esc(disguise.shown.jaName)}は ${esc(q.choices[disguise.pos].jaName)}が ばけたすがた だった！<br>もういちど えらぼう！</p>`
       : "";
 
+  const resultBanner = answered
+    ? `<p class="result-banner ${q.correct ? "result-banner-correct" : "result-banner-wrong"}" role="alert">${q.correct ? "せいかい！" : "ざんねん…"}</p>`
+    : "";
+
+  const footer = answered
+    ? `<button class="btn btn-primary" id="next-btn">${isLastQuestion(state) ? "けっかを見る" : "つぎの問題へ"}</button>`
+    : `<button class="btn btn-primary" id="confirm-btn" ${selection.size === 0 ? "disabled" : ""}>けってい</button>`;
+
   root.innerHTML = `
     <div class="screen screen-quiz">
       <header class="quiz-header">
@@ -74,12 +86,11 @@ export function renderQuiz(
         <div class="poke-name">${esc(q.target.jaName)} <span class="poke-no">No.${q.target.id}</span></div>
         ${targetSpeed}
       </div>
-      <p class="question-text">${esc(q.target.jaName)}より すばやいのは どっち？</p>
+      <p class="question-text">${esc(q.target.jaName)}より すばやいのを ぜんぶ えらぼう！<br><span class="question-hint">(こたえは 1〜3匹。えらんだら「けってい」)</span></p>
       ${revealBanner}
-      <div class="choices">${choicesHtml}</div>
-      <footer class="quiz-footer">
-        ${answered ? `<button class="btn btn-primary" id="next-btn">${isLastQuestion(state) ? "けっかを見る" : "つぎの問題へ"}</button>` : ""}
-      </footer>
+      ${resultBanner}
+      <div class="choices choices-4">${choicesHtml}</div>
+      <footer class="quiz-footer">${footer}</footer>
     </div>
   `;
 
@@ -89,9 +100,12 @@ export function renderQuiz(
   if (!answered) {
     for (const btn of root.querySelectorAll<HTMLButtonElement>("[data-pick]")) {
       btn.addEventListener("click", () =>
-        handlers.onAnswer(Number(btn.dataset.pick))
+        handlers.onToggle(Number(btn.dataset.pick))
       );
     }
+    root
+      .querySelector<HTMLButtonElement>("#confirm-btn")
+      ?.addEventListener("click", handlers.onConfirm);
   } else {
     root
       .querySelector<HTMLButtonElement>("#next-btn")!

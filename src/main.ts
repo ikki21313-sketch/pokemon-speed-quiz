@@ -15,16 +15,31 @@ let state: GameState = {
   phase: "title",
 };
 
+/** 現在の問題で選択中の選択肢 ID(確定前) */
+let selection = new Set<number>();
+
 function startGame(): void {
   state = newGame();
+  selection = new Set();
   preloadQuestionImages(currentQuestion(state));
   render();
 }
 
-function handleAnswer(pickedId: number): void {
-  const result = answer(state, pickedId);
+function handleToggle(id: number): void {
+  if (selection.has(id)) {
+    selection.delete(id);
+  } else {
+    selection.add(id);
+  }
+  render();
+}
+
+function handleConfirm(): void {
+  if (selection.size === 0) return;
+  const result = answer(state, [...selection]);
   if (result === "revealed") {
-    // ゾロアークが出現。回答は確定させず、ノイズ演出付きで再描画して再回答を待つ
+    // ゾロアークが出現。回答は確定させず、選び直しのためリセットして再描画
+    selection = new Set();
     render(true);
     return;
   }
@@ -37,6 +52,7 @@ function handleAnswer(pickedId: number): void {
 
 function handleNext(): void {
   advance(state);
+  selection = new Set();
   render();
   window.scrollTo({ top: 0 });
 }
@@ -50,7 +66,8 @@ function render(justRevealed = false): void {
       renderQuiz(
         root,
         state,
-        { onAnswer: handleAnswer, onNext: handleNext },
+        { onToggle: handleToggle, onConfirm: handleConfirm, onNext: handleNext },
+        selection,
         justRevealed
       );
       break;

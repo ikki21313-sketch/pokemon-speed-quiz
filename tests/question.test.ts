@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { buildQuestions } from "../src/game/question";
 import { loadPokeData, loadTricksters } from "../src/data/loader";
-import { TOTAL_Q } from "../src/game/types";
+import { TOTAL_Q, CHOICE_COUNT, SPEED_RANGE, correctIds } from "../src/game/types";
+import type { Question } from "../src/game/types";
 
 /** 固定シードの乱数 (mulberry32) */
 function seededRng(seed: number): () => number {
@@ -17,40 +18,51 @@ function seededRng(seed: number): () => number {
 
 const data = loadPokeData();
 
+/** 1問の基本不変条件 (C-1, C-2, C-5) を検証 */
+function expectInvariants(q: Question, checkRange = true): void {
+  // C-1: 5匹の ID が相異なる
+  const ids = [q.target.id, ...q.choices.map((c) => c.id)];
+  expect(new Set(ids).size).toBe(CHOICE_COUNT + 1);
+  // C-2: 5匹の素早さが相異なる
+  const speeds = [q.target.speed, ...q.choices.map((c) => c.speed)];
+  expect(new Set(speeds).size).toBe(CHOICE_COUNT + 1);
+  // C-4: 素早さがお手本 ±SPEED_RANGE 以内 (化けた正体は対象外)
+  if (checkRange) {
+    for (const c of q.choices) {
+      expect(Math.abs(c.speed - q.target.speed)).toBeLessThanOrEqual(SPEED_RANGE);
+    }
+  }
+  // C-5: 正解 (お手本より速い) は 1〜3匹
+  const n = correctIds(q).length;
+  expect(n).toBeGreaterThanOrEqual(1);
+  expect(n).toBeLessThanOrEqual(CHOICE_COUNT - 1);
+}
+
 describe("buildQuestions", () => {
   it("T-1: 指定問数を返す", () => {
     const qs = buildQuestions(data, TOTAL_Q, seededRng(1));
     expect(qs).toHaveLength(TOTAL_Q);
   });
 
-  it("T-2: 全問で fast.speed > target.speed > slow.speed", () => {
+  it("T-2: 選択肢は4匹で、素早さはお手本 ±10 以内", () => {
     const qs = buildQuestions(data, TOTAL_Q, seededRng(2));
     for (const q of qs) {
-      expect(q.fast.speed).toBeGreaterThan(q.target.speed);
-      expect(q.target.speed).toBeGreaterThan(q.slow.speed);
+      expect(q.choices).toHaveLength(CHOICE_COUNT);
+      for (const c of q.choices) {
+        expect(Math.abs(c.speed - q.target.speed)).toBeLessThanOrEqual(SPEED_RANGE);
+        expect(c.speed).not.toBe(q.target.speed);
+      }
     }
   });
 
-  it("T-3: 各問の3匹の ID が相異なる", () => {
+  it("T-3: 各問で ID・素早さが相異なり、正解数は 1〜3", () => {
     const qs = buildQuestions(data, TOTAL_Q, seededRng(3));
-    for (const q of qs) {
-      const ids = new Set([q.target.id, q.fast.id, q.slow.id]);
-      expect(ids.size).toBe(3);
-    }
-  });
-
-  it("T-4: choices に fast と slow が1匹ずつ含まれる", () => {
-    const qs = buildQuestions(data, TOTAL_Q, seededRng(4));
-    for (const q of qs) {
-      const ids = q.choices.map((p) => p.id).sort();
-      const expected = [q.fast.id, q.slow.id].sort();
-      expect(ids).toEqual(expected);
-    }
+    for (const q of qs) expectInvariants(q);
   });
 
   it("T-5: 1ゲーム内でポケモンが重複しない(通常ケース)", () => {
     const qs = buildQuestions(data, TOTAL_Q, seededRng(5));
-    const ids = qs.flatMap((q) => [q.target.id, q.fast.id, q.slow.id]);
+    const ids = qs.flatMap((q) => [q.target.id, ...q.choices.map((c) => c.id)]);
     expect(new Set(ids).size).toBe(ids.length);
   });
 
@@ -58,11 +70,7 @@ describe("buildQuestions", () => {
     for (let seed = 0; seed < 1000; seed++) {
       const qs = buildQuestions(data, TOTAL_Q, seededRng(seed));
       expect(qs).toHaveLength(TOTAL_Q);
-      for (const q of qs) {
-        expect(q.fast.speed).toBeGreaterThan(q.target.speed);
-        expect(q.target.speed).toBeGreaterThan(q.slow.speed);
-        expect(new Set([q.target.id, q.fast.id, q.slow.id]).size).toBe(3);
-      }
+      for (const q of qs) expectInvariants(q);
     }
   });
 });
@@ -93,25 +101,33 @@ describe("buildQuestions (ゾロアークギミック)", () => {
     }
   });
 
-  it("Z-4: disguise があっても fast > target > slow と C-1/C-2 が保たれる", () => {
+  it("Z-4: disguise があっても ID/同速/正解数の不変条件が保たれる", () => {
     for (let seed = 0; seed < 300; seed++) {
       const qs = buildQuestions(data, TOTAL_Q, seededRng(seed), { tricks, trickRate: 1 });
       for (const q of qs) {
-        expect(q.fast.speed).toBeGreaterThan(q.target.speed);
-        expect(q.target.speed).toBeGreaterThan(q.slow.speed);
-        expect(new Set([q.target.id, q.fast.id, q.slow.id]).size).toBe(3);
-        expect(new Set([q.target.speed, q.fast.speed, q.slow.speed]).size).toBe(3);
+        // 化けた正体の素早さは ±10 の範囲外でもよいため range は正体以外で検証
+        const ids = [q.target.id, ...q.choices.map((c) => c.id)];
+        expect(new Set(ids).size).toBe(CHOICE_COUNT + 1);
+        const speeds = [q.target.speed, ...q.choices.map((c) => c.speed)];
+        expect(new Set(speeds).size).toBe(CHOICE_COUNT + 1);
+        const n = correctIds(q).length;
+        expect(n).toBeGreaterThanOrEqual(1);
+        expect(n).toBeLessThanOrEqual(CHOICE_COUNT - 1);
+        for (const [i, c] of q.choices.entries()) {
+          if (q.disguise && q.disguise.pos === i) continue;
+          expect(Math.abs(c.speed - q.target.speed)).toBeLessThanOrEqual(SPEED_RANGE);
+        }
       }
     }
   });
 
-  it("Z-5: 化けの皮 (shown) は正体と同じ役回り (速い側/遅い側) の見た目になる", () => {
+  it("Z-5: 化けの皮 (shown) は正体と同じ側 (速い/遅い) の見た目になる", () => {
     const qs = buildQuestions(data, TOTAL_Q, seededRng(13), { tricks, trickRate: 1 });
     for (const q of qs.filter((x) => x.disguise !== null)) {
       const actual = q.choices[q.disguise!.pos];
-      const shownFasterThanTarget = q.disguise!.shown.speed > q.target.speed;
-      const actualFasterThanTarget = actual.speed > q.target.speed;
-      expect(shownFasterThanTarget).toBe(actualFasterThanTarget);
+      const shownFaster = q.disguise!.shown.speed > q.target.speed;
+      const actualFaster = actual.speed > q.target.speed;
+      expect(shownFaster).toBe(actualFaster);
     }
   });
 });

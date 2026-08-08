@@ -1,4 +1,5 @@
 import type { GameState, Pokemon, Question } from "../../game/types";
+import { correctIds } from "../../game/types";
 import { esc, hydrateImages, pokeImgHtml } from "../components";
 
 function comment(score: number, total: number): string {
@@ -11,20 +12,21 @@ function comment(score: number, total: number): string {
 }
 
 function chipHtml(q: Question, p: Pokemon): string {
+  const picked = q.pickedIds?.includes(p.id) ?? false;
   const cls = ["chip"];
   let tag = "";
   if (p.id === q.target.id) {
     cls.push("chip-target");
     tag = `<span class="chip-tag">お手本</span>`;
-  } else if (p.id === q.fast.id) {
+  } else if (correctIds(q).includes(p.id)) {
     cls.push("chip-correct");
-  } else if (p.id === q.pickedId) {
+  } else if (picked) {
     cls.push("chip-wrong");
   }
   if (q.disguise && q.choices[q.disguise.pos].id === p.id) {
     tag += `<span class="chip-tag chip-tag-trick">ばけていた！</span>`;
   }
-  if (p.id === q.pickedId) {
+  if (picked) {
     tag += `<span class="chip-tag chip-tag-picked">選択</span>`;
   }
   return `
@@ -52,7 +54,7 @@ export function renderResult(
         <li class="history-row">
           <div class="history-head">
             ${mark}
-            <span class="history-q">Q${i + 1}. ${esc(q.target.jaName)}より すばやいのは？</span>
+            <span class="history-q">Q${i + 1}. ${esc(q.target.jaName)}より すばやいのを ぜんぶ えらべ！</span>
           </div>
           <div class="chips">
             ${chipHtml(q, q.target)}

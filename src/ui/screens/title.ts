@@ -3,12 +3,12 @@ export function renderTitle(root: HTMLElement, onStart: () => void): void {
     <div class="screen screen-title">
       <h1 class="game-title">すばやさクイズ</h1>
       <div class="card rules-card">
-        <p>お手本のポケモンより<br>「すばやさ」が高いのはどっち？</p>
+        <p>お手本のポケモンより<br>「すばやさ」が高いのは どれ？</p>
         <ul class="rules">
-          <li>2匹のうち すばやい ほうを えらぼう</li>
-          <li>ぜんぶで 10もん</li>
+          <li>4匹から すばやい ポケモンを ぜんぶ えらぼう（こたえは 1〜3匹）</li>
+          <li>みんな すばやさは お手本と ±10 いない。すごく きわどい しょうぶ！</li>
           <li>こたえると すばやさが ひょうじされるよ</li>
-          <li>10もん おわると けっかが みられるよ</li>
+          <li>ぜんぶで 10もん。おわると けっかが みられるよ</li>
         </ul>
         <button class="btn btn-primary" id="start-btn">スタート！</button>
       </div>
