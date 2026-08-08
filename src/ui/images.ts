@@ -40,9 +40,11 @@ export function attachFallback(img: HTMLImageElement, id: number): void {
   img.src = officialArtworkUrl(id);
 }
 
-/** 次問の画像3枚を先読みする */
+/** 次問の画像を先読みする(化けギミックがある場合は化けの皮と正体の両方) */
 export function preloadQuestionImages(q: Question): void {
-  for (const p of [q.target, ...q.choices]) {
+  const targets = [q.target, ...q.choices];
+  if (q.disguise) targets.push(q.disguise.shown);
+  for (const p of targets) {
     const img = new Image();
     img.src = officialArtworkUrl(p.id);
   }

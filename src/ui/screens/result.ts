@@ -21,6 +21,9 @@ function chipHtml(q: Question, p: Pokemon): string {
   } else if (p.id === q.pickedId) {
     cls.push("chip-wrong");
   }
+  if (q.disguise && q.choices[q.disguise.pos].id === p.id) {
+    tag += `<span class="chip-tag chip-tag-trick">ばけていた！</span>`;
+  }
   if (p.id === q.pickedId) {
     tag += `<span class="chip-tag chip-tag-picked">選択</span>`;
   }

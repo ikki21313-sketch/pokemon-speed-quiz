@@ -17,21 +17,27 @@ export interface QuizHandlers {
 export function renderQuiz(
   root: HTMLElement,
   state: GameState,
-  handlers: QuizHandlers
+  handlers: QuizHandlers,
+  justRevealed = false
 ): void {
   const q = currentQuestion(state);
   const answered = q.pickedId !== null;
+  const disguise = q.disguise;
 
   const targetSpeed = answered
     ? `<div class="speed-value">すばやさ <strong>${q.target.speed}</strong></div>${speedBarHtml(q.target.speed)}`
     : `<div class="speed-value">すばやさ <strong>???</strong></div>`;
 
   const choicesHtml = q.choices
-    .map((p) => {
+    .map((p, idx) => {
+      // 化けギミック: 正体出現前は「化けの皮」のポケモンを表示する
+      const isDisguisedSlot = disguise !== null && disguise.pos === idx;
+      const display = isDisguisedSlot && !disguise.revealed ? disguise.shown : p;
       const isCorrectCard = p.id === q.fast.id;
       const isPicked = p.id === q.pickedId;
       const cls = ["card", "choice-card"];
       if (answered && isCorrectCard) cls.push("choice-correct");
+      if (isDisguisedSlot && disguise.revealed && justRevealed) cls.push("glitch");
       const badge = !answered
         ? ""
         : isPicked
@@ -43,13 +49,18 @@ export function renderQuiz(
       return `
         <button class="${cls.join(" ")}" data-pick="${p.id}" ${answered ? "disabled" : ""}>
           ${badge}
-          ${pokeImgHtml(p, "poke-img")}
-          <div class="poke-name">${esc(p.jaName)}</div>
+          ${pokeImgHtml(display, "poke-img")}
+          <div class="poke-name">${esc(display.jaName)}</div>
           ${speed}
         </button>
       `;
     })
     .join("");
+
+  const revealBanner =
+    disguise?.revealed && !answered
+      ? `<p class="reveal-banner" role="alert">！？ ${esc(disguise.shown.jaName)}は ${esc(q.choices[disguise.pos].jaName)}が ばけたすがた だった！<br>もういちど えらぼう！</p>`
+      : "";
 
   root.innerHTML = `
     <div class="screen screen-quiz">
@@ -64,6 +75,7 @@ export function renderQuiz(
         ${targetSpeed}
       </div>
       <p class="question-text">${esc(q.target.jaName)}より すばやいのは どっち？</p>
+      ${revealBanner}
       <div class="choices">${choicesHtml}</div>
       <footer class="quiz-footer">
         ${answered ? `<button class="btn btn-primary" id="next-btn">${isLastQuestion(state) ? "けっかを見る" : "つぎの問題へ"}</button>` : ""}

@@ -18,13 +18,9 @@ const SPEED_STAT_ID = 6;
 const LANG_JA = 11; // 日本語
 const LANG_JA_HRKT = 1; // 日本語(かなカナ) フォールバック
 
-const outPath = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "..",
-  "src",
-  "data",
-  "pokedata.json"
-);
+const dataDir = join(dirname(fileURLToPath(import.meta.url)), "..", "src", "data");
+const outPath = join(dataDir, "pokedata.json");
+const zoroOutPath = join(dataDir, "zoroark.json");
 
 /** 引用符・引用符内カンマに対応した最小限の CSV パーサ */
 function parseCsv(text) {
@@ -76,9 +72,10 @@ async function fetchCsv(name) {
   return parseCsv(await res.text());
 }
 
-const [statsRows, nameRows] = await Promise.all([
+const [statsRows, nameRows, pokemonRows] = await Promise.all([
   fetchCsv("pokemon_stats.csv"),
   fetchCsv("pokemon_species_names.csv"),
+  fetchCsv("pokemon.csv"),
 ]);
 
 // pokemon_stats.csv: pokemon_id,stat_id,base_stat,effort
@@ -123,3 +120,30 @@ const json = JSON.stringify(data);
 await writeFile(outPath, json + "\n", "utf8");
 console.log(`wrote ${outPath}`);
 console.log(`entries: ${data.length}, size: ${(Buffer.byteLength(json) / 1024).toFixed(1)} KB`);
+
+// --- ゾロアークギミック用データ ---
+// pokemon.csv: id,identifier,species_id,... — フォルム違いは 10000 番台の pokemon_id を持ち、
+// スプライトはその pokemon_id で参照できる
+function findPokemonId(identifier) {
+  const row = pokemonRows.slice(1).find((r) => r[1] === identifier);
+  if (!row) throw new Error(`pokemon.csv: ${identifier} not found`);
+  return Number(row[0]);
+}
+
+// stats はフィルタ前の全行から引く (10000 番台のフォルムも含むため)
+function findSpeed(pokemonId) {
+  const row = statsRows
+    .slice(1)
+    .find((r) => Number(r[0]) === pokemonId && Number(r[1]) === SPEED_STAT_ID);
+  if (!row) throw new Error(`pokemon_stats.csv: speed for ${pokemonId} not found`);
+  return Number(row[2]);
+}
+
+const zoroarkId = findPokemonId("zoroark");
+const hisuiId = findPokemonId("zoroark-hisui");
+const zoroData = [
+  [zoroarkId, "ゾロアーク", findSpeed(zoroarkId)],
+  [hisuiId, "ヒスイゾロアーク", findSpeed(hisuiId)],
+];
+await writeFile(zoroOutPath, JSON.stringify(zoroData) + "\n", "utf8");
+console.log(`wrote ${zoroOutPath}: ${JSON.stringify(zoroData)}`);

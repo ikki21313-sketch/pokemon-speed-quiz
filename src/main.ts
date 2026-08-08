@@ -22,7 +22,12 @@ function startGame(): void {
 }
 
 function handleAnswer(pickedId: number): void {
-  answer(state, pickedId);
+  const result = answer(state, pickedId);
+  if (result === "revealed") {
+    // ゾロアークが出現。回答は確定させず、ノイズ演出付きで再描画して再回答を待つ
+    render(true);
+    return;
+  }
   // 次問の画像を先読み
   if (!isLastQuestion(state)) {
     preloadQuestionImages(state.questions[state.index + 1]);
@@ -36,13 +41,18 @@ function handleNext(): void {
   window.scrollTo({ top: 0 });
 }
 
-function render(): void {
+function render(justRevealed = false): void {
   switch (state.phase) {
     case "title":
       renderTitle(root, startGame);
       break;
     case "quiz":
-      renderQuiz(root, state, { onAnswer: handleAnswer, onNext: handleNext });
+      renderQuiz(
+        root,
+        state,
+        { onAnswer: handleAnswer, onNext: handleNext },
+        justRevealed
+      );
       break;
     case "result":
       renderResult(root, state, startGame);

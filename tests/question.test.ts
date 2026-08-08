@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildQuestions } from "../src/game/question";
-import { loadPokeData } from "../src/data/loader";
+import { loadPokeData, loadTricksters } from "../src/data/loader";
 import { TOTAL_Q } from "../src/game/types";
 
 /** 固定シードの乱数 (mulberry32) */
@@ -63,6 +63,55 @@ describe("buildQuestions", () => {
         expect(q.target.speed).toBeGreaterThan(q.slow.speed);
         expect(new Set([q.target.id, q.fast.id, q.slow.id]).size).toBe(3);
       }
+    }
+  });
+});
+
+describe("buildQuestions (ゾロアークギミック)", () => {
+  const tricks = loadTricksters();
+
+  it("Z-1: trickRate=0 なら disguise は発生しない", () => {
+    const qs = buildQuestions(data, TOTAL_Q, seededRng(10), { tricks, trickRate: 0 });
+    for (const q of qs) expect(q.disguise).toBeNull();
+  });
+
+  it("Z-2: tricks 未指定でも disguise は発生しない", () => {
+    const qs = buildQuestions(data, TOTAL_Q, seededRng(11));
+    for (const q of qs) expect(q.disguise).toBeNull();
+  });
+
+  it("Z-3: trickRate=1 で disguise が発生し、正体はゾロアーク系", () => {
+    const qs = buildQuestions(data, TOTAL_Q, seededRng(12), { tricks, trickRate: 1 });
+    const disguised = qs.filter((q) => q.disguise !== null);
+    expect(disguised.length).toBeGreaterThan(0);
+    const trickIds = new Set(tricks.map((t) => t.id));
+    for (const q of disguised) {
+      const actual = q.choices[q.disguise!.pos];
+      expect(trickIds.has(actual.id)).toBe(true);
+      expect(q.disguise!.shown.id).not.toBe(actual.id);
+      expect(q.disguise!.revealed).toBe(false);
+    }
+  });
+
+  it("Z-4: disguise があっても fast > target > slow と C-1/C-2 が保たれる", () => {
+    for (let seed = 0; seed < 300; seed++) {
+      const qs = buildQuestions(data, TOTAL_Q, seededRng(seed), { tricks, trickRate: 1 });
+      for (const q of qs) {
+        expect(q.fast.speed).toBeGreaterThan(q.target.speed);
+        expect(q.target.speed).toBeGreaterThan(q.slow.speed);
+        expect(new Set([q.target.id, q.fast.id, q.slow.id]).size).toBe(3);
+        expect(new Set([q.target.speed, q.fast.speed, q.slow.speed]).size).toBe(3);
+      }
+    }
+  });
+
+  it("Z-5: 化けの皮 (shown) は正体と同じ役回り (速い側/遅い側) の見た目になる", () => {
+    const qs = buildQuestions(data, TOTAL_Q, seededRng(13), { tricks, trickRate: 1 });
+    for (const q of qs.filter((x) => x.disguise !== null)) {
+      const actual = q.choices[q.disguise!.pos];
+      const shownFasterThanTarget = q.disguise!.shown.speed > q.target.speed;
+      const actualFasterThanTarget = actual.speed > q.target.speed;
+      expect(shownFasterThanTarget).toBe(actualFasterThanTarget);
     }
   });
 });

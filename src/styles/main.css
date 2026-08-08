@@ -278,6 +278,63 @@ body {
   align-items: center;
 }
 
+/* --- ゾロアークギミック --- */
+
+.reveal-banner {
+  background: var(--ink);
+  color: var(--cream);
+  border: 3px solid var(--yellow);
+  border-radius: 10px;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.4);
+  font-weight: 700;
+  text-align: center;
+  padding: 8px 16px;
+  margin: 0;
+  animation: banner-in 0.3s ease-out;
+}
+
+@keyframes banner-in {
+  from {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.glitch {
+  animation: glitch 0.45s steps(2, jump-none) 3;
+}
+
+@keyframes glitch {
+  0% {
+    transform: translate(0);
+    filter: none;
+  }
+  20% {
+    transform: translate(-4px, 2px) skewX(3deg);
+    filter: hue-rotate(90deg) saturate(3);
+  }
+  40% {
+    transform: translate(4px, -2px);
+    filter: invert(0.8);
+  }
+  60% {
+    transform: translate(-3px, -2px) skewX(-3deg);
+    filter: hue-rotate(-60deg) contrast(2.2);
+  }
+  80% {
+    transform: translate(3px, 2px);
+    filter: saturate(0) brightness(1.5);
+  }
+  100% {
+    transform: translate(0);
+    filter: none;
+  }
+}
+
 /* --- 結果 --- */
 
 .score-card {
@@ -392,6 +449,10 @@ body {
   background: var(--ink);
 }
 
+.chip-tag-trick {
+  background: #7a3fb8;
+}
+
 .chip-img {
   width: 48px;
   height: 48px;
@@ -431,5 +492,10 @@ body {
   .btn,
   .choice-card {
     transition: none;
+  }
+
+  .glitch,
+  .reveal-banner {
+    animation: none;
   }
 }
